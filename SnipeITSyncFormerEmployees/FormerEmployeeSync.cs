@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Graph;
-
+//test
 namespace SnipeITSyncFormerEmployees;
 
 public class FormerEmployeeSync
