@@ -104,4 +104,11 @@ public class SnipeItService : ISnipeItService
 
         return false;
     }
+
+    public async Task<bool> CreateSnipeItUser(string firstName, string lastName,
+        string email, string company, string title, string manager, string phoneNumber, string address, string city,
+        string state, string zip)
+    {
+        
+    }
 }

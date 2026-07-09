@@ -25,8 +25,32 @@ public class OnboardEmployeeSync
     [Function("OnboardEmployeeSync")]
     public async Task Run([TimerTrigger("0 0 2 * * *")] TimerInfo myTimer)
     {
+        _logger.LogInformation("Starting scheduled Former Employee sync at: {Time}", DateTime.Now);
         
     }
+
+    private async Task<List<User>> GetRecentlyCreatedEntraUsersAsync()
+    {
+        try
+        {
+            var cutoffDate = DateTime.UtcNow.AddDays(-7);
+            var result = await _graphServiceClient.Users.GetAsync(requestConfiguration =>
+            {
+                requestConfiguration.QueryParameters.Filter = $"createdDateTime ge {cutoffDate:yyyy-MM-ddTHH:mm:ssZ}";
+                requestConfiguration.QueryParameters.Select = ["id", "displayName", "mail"];
+                requestConfiguration.QueryParameters.Count = true;
+                requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
+            });
+            return result?.Value?.ToList() ?? [];
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning("Failed to query users from Entra: {Error}", e.Message);
+            return [];
+        }
+    }
+    
+    
 
     //Some function to get recently enabled Entra users
 
