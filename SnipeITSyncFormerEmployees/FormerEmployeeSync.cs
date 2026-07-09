@@ -21,18 +21,16 @@ public record SnipeItPatchStatus(string Status);
 public class FormerEmployeeSync
 {
     private readonly ILogger<FormerEmployeeSync> _logger;
-    private readonly HttpClient _httpClient;
+    private readonly ISnipeItService _snipeItService;
     private readonly GraphServiceClient _graphServiceClient;
 
-    public FormerEmployeeSync(ILogger<FormerEmployeeSync> logger, HttpClient httpClient,
+    public FormerEmployeeSync(ILogger<FormerEmployeeSync> logger, ISnipeItService snipeItService,
         GraphServiceClient graphServiceClient)
     {
-        var apiKey = Environment.GetEnvironmentVariable("SNIPEIT_API_KEY");
-
         _logger = logger;
-        _httpClient = httpClient;
         _graphServiceClient = graphServiceClient;
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        _snipeItService = snipeItService;
+
     }
 
     [Function("FormerEmployeeSync")]
@@ -58,7 +56,7 @@ public class FormerEmployeeSync
                 continue;
             }
 
-            var snipeUser = await FindSnipeItUser(user.DisplayName, user.Mail);
+            var snipeUser = await _snipeItService.FindSnipeItUser(user.DisplayName, user.Mail);            
             if (snipeUser is null)
             {
                 _logger.LogWarning("No Snipe-IT match found for '{DisplayName}'.", user.DisplayName);
@@ -71,7 +69,7 @@ public class FormerEmployeeSync
                 continue;
             }
 
-            var success = await SetSnipeItUserTitle(snipeUser.Id, user.DisplayName, snipeUser.JobTitle);
+            var success = await _snipeItService.SetSnipeItUserTitle(snipeUser.Id, user.DisplayName, snipeUser.JobTitle);
 
             if (success)
             {
@@ -106,86 +104,5 @@ public class FormerEmployeeSync
             return [];
         }
     }
-
-    private async Task<SnipeItUser?> FindSnipeItUser(string fullName, string email)
-    {
-        var baseUrl = Environment.GetEnvironmentVariable("SNIPEIT_URL");
-        if (!string.IsNullOrEmpty(email))
-        {
-            var encodedEmail = Uri.EscapeDataString(email);
-            var uri = $"{baseUrl}/api/v1/users?search={encodedEmail}&limit=5";
-            try
-            {
-                var response = await _httpClient.GetFromJsonAsync<SnipeItSearchResponse>(uri);
-                var rows = response?.Rows ?? [];
-                var emailMatch = rows.FirstOrDefault(x => x.Email.Equals(email));
-
-                if (emailMatch is null)
-                {
-                    _logger.LogInformation("No Snipe-IT match found for email {Email}", email);
-                }
-
-                return emailMatch;
-            }
-            catch (Exception e)
-            {
-                _logger.LogWarning("Failed to find Snipe-IT user by email {Email}: {Error}", email, e.Message);
-                return null;
-            }
-        }
-        else
-        {
-            var encodedName = Uri.EscapeDataString(fullName);
-            var uri = $"{baseUrl}/api/v1/users?search={encodedName}&limit=10";
-            try
-            {
-                var response = await _httpClient.GetFromJsonAsync<SnipeItSearchResponse>(uri);
-                var rows = response?.Rows ?? [];
-                var nameMatch = rows.FirstOrDefault(x => $"{x.FirstName} {x.LastName}".Equals(fullName));
-                if (nameMatch is null)
-                {
-                    _logger.LogInformation("No Snipe-IT match found for full name {Name}", fullName);
-                }
-                return nameMatch;
-            }
-            catch (Exception e)
-            {
-                _logger.LogWarning("Failed to find Snipe-IT user by name {Name}: {Error}", fullName, e.Message);
-                return null;
-            }
-        }
-    }
-
-    private async Task<bool> SetSnipeItUserTitle(int userId, string displayName, string currentTitle)
-    {
-        var baseUrl = Environment.GetEnvironmentVariable("SNIPEIT_URL");
-        var uri = $"{baseUrl}/api/v1/users/{userId}";
-        try
-        {
-            var response = await _httpClient.PatchAsJsonAsync(uri, new { jobtitle = "Former Employee" });
-            var status = await response.Content.ReadFromJsonAsync<SnipeItPatchStatus>();
-            if (status is null)
-            {
-                _logger.LogWarning("Failed to find Snipe-IT Status.");
-                return false;
-            }
-            if (response.IsSuccessStatusCode && status.Status.Equals("success", StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogInformation("[OK] Updated {DisplayName} (ID: {UserId}) -> 'Former Employee'", displayName, userId);
-                _logger.LogInformation("Current title: {CurrentTitle}", currentTitle);
-                return true;
-            }
-            else
-            {
-                _logger.LogWarning("[WARNING] Unexpected response for {DisplayName}", displayName);
-                return false;
-            }
-        }
-        catch (Exception e)
-        {
-            _logger.LogWarning("Failed to patch user {DisplayName}: {Error}", displayName, e.Message);
-        }
-
-        return false;
-    }
+    
 }

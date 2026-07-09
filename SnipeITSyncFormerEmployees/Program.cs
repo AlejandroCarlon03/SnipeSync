@@ -1,14 +1,12 @@
-using System;
 using Azure.Identity;
-using Azure.Monitor.OpenTelemetry.Exporter;
 using Microsoft.Azure.Functions.Worker.Builder;
-using Microsoft.Azure.Functions.Worker.OpenTelemetry;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Graph;
+using SnipeITSyncFormerEmployees;
 
 var builder = FunctionsApplication.CreateBuilder(args);
-builder.Services.AddHttpClient();
+builder.Services.AddHttpClient<ISnipeItService, SnipeItService>();
 
 builder.Services.AddSingleton(sp =>
 {
