@@ -35,7 +35,6 @@ public class FormerEmployeeSync
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
     }
 
-    //Set to run every day at 2:00 AM, can change easily in the future if another time is more convenient.
     [Function("FormerEmployeeSync")]
     public async Task Run([TimerTrigger("0 0 2 * * *")] TimerInfo timer)
     {
