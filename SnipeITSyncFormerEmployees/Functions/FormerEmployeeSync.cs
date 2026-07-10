@@ -1,22 +1,8 @@
-﻿using System.Net.Http.Headers;
-using Microsoft.Azure.Functions.Worker;
+﻿using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
 using Microsoft.Graph.Models;
-using System.Net.Http.Json;
-using System.Text.Json.Serialization;
-
 namespace SnipeITSyncFormerEmployees;
-
-public record SnipeItUser(
-    int Id,
-    [property: JsonPropertyName("first_name")] string FirstName,
-    [property: JsonPropertyName("last_name")] string LastName,
-    [property: JsonPropertyName("jobtitle")] string JobTitle,
-    string Email
-);
-public record SnipeItSearchResponse(int Total, List<SnipeItUser> Rows);
-public record SnipeItPatchStatus(string Status);
 
 public class FormerEmployeeSync
 {

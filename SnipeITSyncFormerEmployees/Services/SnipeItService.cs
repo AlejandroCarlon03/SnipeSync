@@ -1,14 +1,9 @@
 ﻿using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using Microsoft.Extensions.Logging;
 
 namespace SnipeITSyncFormerEmployees;
-
-public interface ISnipeItService
-{
-    Task<SnipeItUser?> FindSnipeItUser(string fullName, string email);
-    Task<bool> SetSnipeItUserTitle(int userId, string displayName, string currentTitle);
-}
 
 public class SnipeItService : ISnipeItService
 {
@@ -79,7 +74,7 @@ public class SnipeItService : ISnipeItService
         try
         {
             var response = await _httpClient.PatchAsJsonAsync(uri, new { jobtitle = "Former Employee" });
-            var status = await response.Content.ReadFromJsonAsync<SnipeItPatchStatus>();
+            var status = await response.Content.ReadFromJsonAsync<SnipeItStatus>();
             if (status is null)
             {
                 _logger.LogWarning("Failed to find Snipe-IT Status.");
@@ -105,10 +100,49 @@ public class SnipeItService : ISnipeItService
         return false;
     }
 
-    public async Task<bool> CreateSnipeItUser(string firstName, string lastName,
-        string email, string company, string title, string manager, string phoneNumber, string address, string city,
-        string state, string zip)
+    public async Task<bool> CreateSnipeItUser(string firstName, string lastName, string email, string username, string jobTitle)
     {
-        
+        var tempPassword = Convert.ToBase64String(RandomNumberGenerator.GetBytes(18));
+        var baseUrl = Environment.GetEnvironmentVariable("SNIPEIT_URL");
+        var uri = $"{baseUrl}/api/v1/users";
+        var newUserBody = new
+        {
+            first_name = firstName,
+            last_name = lastName,
+            email,
+            username,
+            jobtitle = jobTitle,
+            password = tempPassword,
+            password_confirmation = tempPassword,
+            ldap_import = 1
+        };
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync(uri, newUserBody);
+            var status = await response.Content.ReadFromJsonAsync<SnipeItStatus>();
+            if (status is null)
+            {
+                _logger.LogWarning("Failed to find Snipe-IT Status.");
+                return false;
+            }
+
+            if (response.IsSuccessStatusCode && status.Status.Equals("success", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("[OK], {FirstName} {LastName} has been added to Snipe-IT.", firstName, lastName);
+                _logger.LogInformation("Current title: {CurrentTitle}", jobTitle);
+                return true;
+            }
+            else
+            {
+                _logger.LogWarning("[WARNING] Unexpected response for {FirstName}", firstName);
+                return false;
+            }
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning("Failed to post : {Error}", e.Message);
+        }
+
+        return false;
     }
 }
