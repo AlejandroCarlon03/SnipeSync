@@ -1,10 +1,7 @@
-﻿using System.Net.Http.Headers;
-using Microsoft.Azure.Functions.Worker;
+﻿using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
 using Microsoft.Graph.Models;
-using System.Net.Http.Json;
-using System.Text.Json.Serialization;
 namespace SnipeITSyncFormerEmployees;
 
 public class OnboardEmployeeSync
@@ -20,13 +17,55 @@ public class OnboardEmployeeSync
         _snipeItService = snipeItService;
         _graphServiceClient = graphServiceClient;
     }
-
-
+    
     [Function("OnboardEmployeeSync")]
     public async Task Run([TimerTrigger("0 0 2 * * *")] TimerInfo myTimer)
     {
-        _logger.LogInformation("Starting scheduled Former Employee sync at: {Time}", DateTime.Now);
-        
+        _logger.LogInformation("Starting scheduled sync for new employees at: {Time}", DateTime.Now);
+
+        var recentlyCreatedUsers = await GetRecentlyCreatedEntraUsersAsync();
+
+        if (recentlyCreatedUsers.Count == 0)
+        {
+            _logger.LogInformation("No recently created Entra ID accounts found. Nothing to do.");
+            return;
+        }
+
+        _logger.LogInformation("Found {Count} recently created Entra ID accounts.", recentlyCreatedUsers.Count);
+
+        foreach (var user in recentlyCreatedUsers)
+        {
+            if (user.DisplayName is null || user.Mail is null || 
+                user.GivenName is null || user.Surname is null || user.MailNickname is null)
+            {
+                _logger.LogWarning("Skipping user {Id}: missing required fields in Entra ID.", user.Id);
+                continue;
+            }
+
+            var snipeUser = await _snipeItService.FindSnipeItUser(user.DisplayName, user.Mail);
+
+            if (snipeUser is not null)
+            {
+                _logger.LogInformation("{DisplayName} already exists in Snipe-IT, skipping.", user.DisplayName);
+                continue;
+            }
+
+            var jobTitle = user.JobTitle ?? "New Employee";
+
+            var success = await _snipeItService.CreateSnipeItUser(
+                user.GivenName, user.Surname, user.Mail, user.MailNickname, jobTitle);
+
+            if (success)
+            {
+                _logger.LogInformation("{DisplayName} successfully added to Snipe-IT.", user.DisplayName);
+            }
+            else
+            {
+                _logger.LogWarning("Failed to add {DisplayName} to Snipe-IT.", user.DisplayName);
+            }
+        }
+
+        _logger.LogInformation("Onboarding sync completed.");
     }
 
     private async Task<List<User>> GetRecentlyCreatedEntraUsersAsync()
@@ -37,7 +76,8 @@ public class OnboardEmployeeSync
             var result = await _graphServiceClient.Users.GetAsync(requestConfiguration =>
             {
                 requestConfiguration.QueryParameters.Filter = $"createdDateTime ge {cutoffDate:yyyy-MM-ddTHH:mm:ssZ}";
-                requestConfiguration.QueryParameters.Select = ["id", "displayName", "mail"];
+                requestConfiguration.QueryParameters.Select = 
+                    ["id", "displayName", "mail", "givenName", "surname", "mailNickname", "jobTitle"];
                 requestConfiguration.QueryParameters.Count = true;
                 requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
             });
@@ -49,13 +89,4 @@ public class OnboardEmployeeSync
             return [];
         }
     }
-    
-    
-
-    //Some function to get recently enabled Entra users
-
-    //Some function to find said user
-
-    //Some function to set and sync their information 
-    //Post their info to Snipe-IT
 }
