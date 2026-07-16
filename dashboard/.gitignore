@@ -1,0 +1,14 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# PyInstaller output
+dist/
+build/
+
+# Built frontend -- generated into the Flask static dir by `npm run build`
+backend/static/
+
+# Node
+node_modules/

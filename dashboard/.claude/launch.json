@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dashboard-api",
+      "runtimeExecutable": "../.venv/Scripts/python.exe",
+      "runtimeArgs": ["app.py"],
+      "cwd": "backend",
+      "port": 5178
+    },
+    {
+      "name": "dashboard-ui",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "frontend",
+      "port": 5179
+    }
+  ]
+}
