@@ -38,6 +38,12 @@ public class SyncOptions
     /// </summary>
     public int? DeprovisionedStatusId { get; }
 
+    /// <summary>When true, reclaim (check in) license seats assigned to a departed user.</summary>
+    public bool AutoCheckinLicenses { get; }
+
+    /// <summary>When true, reclaim (check in) accessories assigned to a departed user.</summary>
+    public bool AutoCheckinAccessories { get; }
+
     // --- Feature 2: department / manager / office custom fields ------------------
     /// <summary>Snipe-IT user custom-field db_column for department (e.g. _snipeit_department_5). Null skips.</summary>
     public string? DepartmentFieldColumn { get; }
@@ -79,6 +85,8 @@ public class SyncOptions
 
         AutoCheckinAssets = GetBool("AUTO_CHECKIN_ASSETS", defaultValue: true);
         DeprovisionedStatusId = GetInt("DEPROVISIONED_STATUS_ID");
+        AutoCheckinLicenses = GetBool("AUTO_CHECKIN_LICENSES", defaultValue: true);
+        AutoCheckinAccessories = GetBool("AUTO_CHECKIN_ACCESSORIES", defaultValue: true);
 
         DepartmentFieldColumn = Get("SNIPEIT_CF_DEPARTMENT");
         ManagerFieldColumn = Get("SNIPEIT_CF_MANAGER");

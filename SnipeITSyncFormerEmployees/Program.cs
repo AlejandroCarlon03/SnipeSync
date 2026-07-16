@@ -14,6 +14,7 @@ builder.Services.AddHttpClient<ISnipeItService, SnipeItService>();
 builder.Services.AddHttpClient<INotificationService, TeamsNotificationService>();
 
 builder.Services.AddSingleton<EntraUserService>();
+builder.Services.AddSingleton<IOffboardingService, OffboardingService>();
 builder.Services.AddSingleton<IAuditService, TableAuditService>();
 builder.Services.AddSingleton<IReconciliationQueue, StorageReconciliationQueue>();
 

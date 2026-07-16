@@ -42,3 +42,34 @@ public record SnipeItStatusLabel(
 public record SnipeItNamedRef(int Id, string? Name);
 
 public record SnipeItAssetsResponse(int Total, List<SnipeItAsset> Rows);
+
+// --- License models (Part B) ----------------------------------------------------
+// GET /api/v1/users/{id}/licenses returns the licenses assigned to a user, but a
+// check-in is per *seat*, so we resolve each license's seats and match the user.
+public record SnipeItUserLicense(int Id, string? Name);
+public record SnipeItUserLicensesResponse(int Total, List<SnipeItUserLicense> Rows);
+
+// GET /api/v1/licenses/{id}/seats
+public record SnipeItLicenseSeatRaw(
+    int Id,
+    [property: JsonPropertyName("assigned_to")] SnipeItNamedRef? AssignedTo
+);
+public record SnipeItLicenseSeatsResponse(int Total, List<SnipeItLicenseSeatRaw> Rows);
+
+/// <summary>A resolved seat assigned to a specific user, ready to check in.</summary>
+public record SnipeItLicenseSeat(int SeatId, int LicenseId, string? LicenseName)
+{
+    public string DisplayLabel => $"{LicenseName ?? $"license #{LicenseId}"} (seat #{SeatId})";
+}
+
+// --- Accessory models (Part B) --------------------------------------------------
+// GET /api/v1/users/{id}/accessories. Check-in uses the pivot id of the assignment.
+public record SnipeItAccessory(
+    int Id,
+    string? Name,
+    [property: JsonPropertyName("pivot_id")] int? PivotId
+)
+{
+    public string DisplayLabel => !string.IsNullOrWhiteSpace(Name) ? Name! : $"accessory #{Id}";
+}
+public record SnipeItAccessoriesResponse(int Total, List<SnipeItAccessory> Rows);
