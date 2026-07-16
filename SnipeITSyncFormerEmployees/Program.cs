@@ -6,7 +6,16 @@ using Microsoft.Graph;
 using SnipeITSyncFormerEmployees;
 
 var builder = FunctionsApplication.CreateBuilder(args);
+
+// Config-driven options (feature 7) — read once from environment / app settings.
+builder.Services.AddSingleton<SyncOptions>();
+
 builder.Services.AddHttpClient<ISnipeItService, SnipeItService>();
+builder.Services.AddHttpClient<INotificationService, TeamsNotificationService>();
+
+builder.Services.AddSingleton<EntraUserService>();
+builder.Services.AddSingleton<IAuditService, TableAuditService>();
+builder.Services.AddSingleton<IReconciliationQueue, StorageReconciliationQueue>();
 
 builder.Services.AddSingleton(sp =>
 {
@@ -23,4 +32,3 @@ builder.Services.AddSingleton(sp =>
 
 builder.ConfigureFunctionsWebApplication();
 builder.Build().Run();
-

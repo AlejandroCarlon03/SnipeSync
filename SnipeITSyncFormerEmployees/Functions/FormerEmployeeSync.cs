@@ -1,94 +1,124 @@
-﻿using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
-using Microsoft.Graph;
-using Microsoft.Graph.Models;
 namespace SnipeITSyncFormerEmployees;
 
-public class FormerEmployeeSync
+public class FormerEmployeeSync(
+    ILogger<FormerEmployeeSync> logger,
+    ISnipeItService snipeItService,
+    EntraUserService entraUserService,
+    INotificationService notificationService,
+    IAuditService auditService,
+    IReconciliationQueue reconciliationQueue,
+    SyncOptions options)
 {
-    private readonly ILogger<FormerEmployeeSync> _logger;
-    private readonly ISnipeItService _snipeItService;
-    private readonly GraphServiceClient _graphServiceClient;
-
-    public FormerEmployeeSync(ILogger<FormerEmployeeSync> logger, ISnipeItService snipeItService,
-        GraphServiceClient graphServiceClient)
-    {
-        _logger = logger;
-        _graphServiceClient = graphServiceClient;
-        _snipeItService = snipeItService;
-
-    }
-
     [Function("FormerEmployeeSync")]
     public async Task Run([TimerTrigger("0 0 2 * * *")] TimerInfo timer)
     {
-        _logger.LogInformation("Starting scheduled Former Employee sync at: {Time}", DateTime.Now);
+        logger.LogInformation("Starting scheduled Former Employee sync at: {Time}{DryRun}",
+            DateTime.Now, options.DryRun ? " [DRY-RUN]" : "");
 
-        var disabledUsers = await GetDisabledEntraUsersAsync();
+        var summary = new SyncRunSummary("FormerEmployeeSync") { DryRun = options.DryRun };
+
+        var disabledUsers = await entraUserService.GetDisabledUsersAsync();
 
         if (disabledUsers.Count == 0)
         {
-            _logger.LogInformation("No disabled Entra ID accounts found. Nothing to do.");
+            logger.LogInformation("No disabled Entra ID accounts found. Nothing to do.");
+            await notificationService.SendRunSummaryAsync(summary);
             return;
         }
 
-        _logger.LogInformation("Found {Count} disabled Entra ID accounts.", disabledUsers.Count);
+        logger.LogInformation("Found {Count} disabled Entra ID accounts.", disabledUsers.Count);
 
         foreach (var user in disabledUsers)
         {
             if (user.DisplayName is null || user.Mail is null)
             {
-                _logger.LogWarning("Skipping user {Id}: missing DisplayName or Mail in Entra ID.", user.Id);
+                logger.LogWarning("Skipping user {Id}: missing DisplayName or Mail in Entra ID.", user.Id);
                 continue;
             }
 
-            var snipeUser = await _snipeItService.FindSnipeItUser(user.DisplayName, user.Mail);            
+            summary.Processed++;
+
+            var snipeUser = await snipeItService.FindSnipeItUser(user.DisplayName, user.Mail);
             if (snipeUser is null)
             {
-                _logger.LogWarning("No Snipe-IT match found for '{DisplayName}'.", user.DisplayName);
+                logger.LogWarning("No Snipe-IT match found for '{DisplayName}'.", user.DisplayName);
+                summary.Unmatched.Add(user.DisplayName);
+                await reconciliationQueue.EnqueueAsync(new UnmatchedUser(
+                    user.Id, user.DisplayName, user.Mail, "No Snipe-IT match", "FormerEmployeeSync", DateTimeOffset.UtcNow));
+                await auditService.RecordAsync("FormerEmployeeSync", user.DisplayName, "SkippedNoMatch", detail: user.Mail);
                 continue;
             }
 
-            if (snipeUser.JobTitle == "Former Employee")
+            if (snipeUser.JobTitle == options.FormerEmployeeTitle)
             {
-                _logger.LogInformation("{DisplayName} is already marked as Former Employee, skipping.", user.DisplayName);
-                continue;
-            }
-
-            var success = await _snipeItService.SetSnipeItUserTitle(snipeUser.Id, user.DisplayName, snipeUser.JobTitle);
-
-            if (success)
-            {
-                _logger.LogInformation("{DisplayName} successfully marked as Former Employee in Snipe-IT.", user.DisplayName);
+                logger.LogInformation("{DisplayName} is already marked as {Title}, skipping title update.",
+                    user.DisplayName, options.FormerEmployeeTitle);
+                summary.AlreadyCurrent++;
             }
             else
             {
-                _logger.LogWarning("Failed to update {DisplayName} in Snipe-IT.", user.DisplayName);
+                var titleUpdated = await snipeItService.SetSnipeItUserTitle(
+                    snipeUser.Id, user.DisplayName, snipeUser.JobTitle, options.FormerEmployeeTitle);
+
+                if (titleUpdated)
+                {
+                    summary.Offboarded++;
+                    await auditService.RecordAsync("FormerEmployeeSync", user.DisplayName, "MarkedFormerEmployee",
+                        oldValue: snipeUser.JobTitle, newValue: options.FormerEmployeeTitle);
+                }
+                else
+                {
+                    logger.LogWarning("Failed to update {DisplayName} in Snipe-IT.", user.DisplayName);
+                    summary.Failed++;
+                }
+            }
+
+            // Feature 1: reclaim the assets that are the real signal of a departure.
+            await HandleAssetsAsync(snipeUser.Id, user.DisplayName, summary);
+        }
+
+        logger.LogInformation("Former Employee sync completed.");
+        await notificationService.SendRunSummaryAsync(summary);
+    }
+
+    private async Task HandleAssetsAsync(int snipeUserId, string displayName, SyncRunSummary summary)
+    {
+        var assets = await snipeItService.GetUserAssets(snipeUserId);
+        if (assets.Count == 0)
+            return;
+
+        logger.LogInformation("{DisplayName} still has {Count} asset(s) checked out in Snipe-IT.",
+            displayName, assets.Count);
+
+        foreach (var asset in assets)
+        {
+            logger.LogInformation("  - {Asset} ({Model}), status '{Status}'",
+                asset.DisplayLabel, asset.Model?.Name ?? "unknown model", asset.StatusLabel?.Name ?? "unknown");
+
+            if (!options.AutoCheckinAssets)
+            {
+                // Log-only mode: tell IT what to physically reclaim.
+                summary.AssetsNeedingAttention.Add($"{displayName}: {asset.DisplayLabel}");
+                continue;
+            }
+
+            var note = $"Auto check-in: {displayName} deactivated in Entra ID ({DateTime.UtcNow:yyyy-MM-dd}).";
+            var checkedIn = await snipeItService.CheckinAsset(
+                asset.Id, asset.DisplayLabel, options.DeprovisionedStatusId, note);
+
+            if (checkedIn)
+            {
+                summary.AssetsCheckedIn++;
+                await auditService.RecordAsync("FormerEmployeeSync", displayName, "AssetCheckedIn",
+                    oldValue: asset.StatusLabel?.Name, newValue: options.DeprovisionedStatusId?.ToString(),
+                    detail: asset.DisplayLabel);
+            }
+            else
+            {
+                summary.AssetsNeedingAttention.Add($"{displayName}: {asset.DisplayLabel}");
             }
         }
-
-        _logger.LogInformation("Former Employee sync completed.");
     }
-
-    private async Task<List<User>> GetDisabledEntraUsersAsync()
-    {
-        try
-        {
-            var result = await _graphServiceClient.Users.GetAsync(requestConfiguration =>
-            {
-                requestConfiguration.QueryParameters.Filter = "accountEnabled eq false";
-                requestConfiguration.QueryParameters.Select = ["id", "displayName", "accountEnabled", "mail"];
-                requestConfiguration.QueryParameters.Count = true;
-                requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
-            });
-
-            return result?.Value?.ToList() ?? [];
-        }
-        catch (Exception e)
-        {
-            _logger.LogWarning("Failed to query disabled users from Entra: {Error}", e.Message);
-            return [];
-        }
-    }
-    
 }

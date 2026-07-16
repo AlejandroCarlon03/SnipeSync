@@ -1,4 +1,4 @@
-﻿using System.Net.Http.Headers;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using Microsoft.Extensions.Logging;
@@ -9,22 +9,25 @@ public class SnipeItService : ISnipeItService
 {
     private readonly ILogger<SnipeItService> _logger;
     private readonly HttpClient _httpClient;
+    private readonly SyncOptions _options;
 
-    public SnipeItService(HttpClient httpClient, ILogger<SnipeItService> logger)
+    public SnipeItService(HttpClient httpClient, ILogger<SnipeItService> logger, SyncOptions options)
     {
         _httpClient = httpClient;
         _logger = logger;
+        _options = options;
         var apiKey = Environment.GetEnvironmentVariable("SNIPEIT_API_KEY");
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
     }
 
+    private static string BaseUrl => Environment.GetEnvironmentVariable("SNIPEIT_URL") ?? string.Empty;
+
     public async Task<SnipeItUser?> FindSnipeItUser(string fullName, string email)
     {
-        var baseUrl = Environment.GetEnvironmentVariable("SNIPEIT_URL");
         if (!string.IsNullOrEmpty(email))
         {
             var encodedEmail = Uri.EscapeDataString(email);
-            var uri = $"{baseUrl}/api/v1/users?search={encodedEmail}&limit=5";
+            var uri = $"{BaseUrl}/api/v1/users?search={encodedEmail}&limit=5";
             try
             {
                 var response = await _httpClient.GetFromJsonAsync<SnipeItSearchResponse>(uri);
@@ -47,7 +50,7 @@ public class SnipeItService : ISnipeItService
         else
         {
             var encodedName = Uri.EscapeDataString(fullName);
-            var uri = $"{baseUrl}/api/v1/users?search={encodedName}&limit=10";
+            var uri = $"{BaseUrl}/api/v1/users?search={encodedName}&limit=10";
             try
             {
                 var response = await _httpClient.GetFromJsonAsync<SnipeItSearchResponse>(uri);
@@ -66,31 +69,36 @@ public class SnipeItService : ISnipeItService
             }
         }
     }
-    
-    public async Task<bool> SetSnipeItUserTitle(int userId, string displayName, string currentTitle)
+
+    public async Task<bool> SetSnipeItUserTitle(int userId, string displayName, string currentTitle, string newTitle)
     {
-        var baseUrl = Environment.GetEnvironmentVariable("SNIPEIT_URL");
-        var uri = $"{baseUrl}/api/v1/users/{userId}";
+        if (_options.DryRun)
+        {
+            _logger.LogInformation("[DRY-RUN] Would update {DisplayName} (ID: {UserId}) title '{Current}' -> '{New}'",
+                displayName, userId, currentTitle, newTitle);
+            return true;
+        }
+
+        var uri = $"{BaseUrl}/api/v1/users/{userId}";
         try
         {
-            var response = await _httpClient.PatchAsJsonAsync(uri, new { jobtitle = "Former Employee" });
+            var response = await _httpClient.PatchAsJsonAsync(uri, new { jobtitle = newTitle });
             var status = await response.Content.ReadFromJsonAsync<SnipeItStatus>();
             if (status is null)
             {
-                _logger.LogWarning("Failed to find Snipe-IT Status.");
+                _logger.LogWarning("Failed to read Snipe-IT status when updating {DisplayName}.", displayName);
                 return false;
             }
             if (response.IsSuccessStatusCode && status.Status.Equals("success", StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogInformation("[OK] Updated {DisplayName} (ID: {UserId}) -> 'Former Employee'", displayName, userId);
-                _logger.LogInformation("Current title: {CurrentTitle}", currentTitle);
+                _logger.LogInformation("[OK] Updated {DisplayName} (ID: {UserId}) '{Current}' -> '{New}'",
+                    displayName, userId, currentTitle, newTitle);
                 return true;
             }
-            else
-            {
-                _logger.LogWarning("[WARNING] Unexpected response for {DisplayName}", displayName);
-                return false;
-            }
+
+            _logger.LogWarning("[WARNING] Unexpected response updating {DisplayName}: {Messages}",
+                displayName, status.Messages);
+            return false;
         }
         catch (Exception e)
         {
@@ -100,47 +108,153 @@ public class SnipeItService : ISnipeItService
         return false;
     }
 
-    public async Task<bool> CreateSnipeItUser(string firstName, string lastName, string email, string username, string jobTitle)
+    public async Task<bool> CreateSnipeItUser(
+        string firstName, string lastName, string email, string username, string jobTitle,
+        IReadOnlyDictionary<string, object?>? extraFields = null)
     {
-        var tempPassword = Convert.ToBase64String(RandomNumberGenerator.GetBytes(18));
-        var baseUrl = Environment.GetEnvironmentVariable("SNIPEIT_URL");
-        var uri = $"{baseUrl}/api/v1/users";
-        var newUserBody = new
+        if (_options.DryRun)
         {
-            first_name = firstName,
-            last_name = lastName,
-            email,
-            username,
-            jobtitle = jobTitle,
-            password = tempPassword,
-            password_confirmation = tempPassword,
-            ldap_import = 1
+            _logger.LogInformation("[DRY-RUN] Would create Snipe-IT user {First} {Last} ({Email}), title '{Title}'",
+                firstName, lastName, email, jobTitle);
+            return true;
+        }
+
+        var tempPassword = Convert.ToBase64String(RandomNumberGenerator.GetBytes(18));
+        var uri = $"{BaseUrl}/api/v1/users";
+
+        var body = new Dictionary<string, object?>
+        {
+            ["first_name"] = firstName,
+            ["last_name"] = lastName,
+            ["email"] = email,
+            ["username"] = username,
+            ["jobtitle"] = jobTitle,
+            ["password"] = tempPassword,
+            ["password_confirmation"] = tempPassword,
+            ["ldap_import"] = 1
         };
+        if (extraFields is not null)
+        {
+            foreach (var (key, value) in extraFields)
+            {
+                if (value is not null) body[key] = value;
+            }
+        }
+
         try
         {
-            var response = await _httpClient.PostAsJsonAsync(uri, newUserBody);
+            var response = await _httpClient.PostAsJsonAsync(uri, body);
             var status = await response.Content.ReadFromJsonAsync<SnipeItStatus>();
             if (status is null)
             {
-                _logger.LogWarning("Failed to find Snipe-IT Status.");
+                _logger.LogWarning("Failed to read Snipe-IT status when creating {First} {Last}.", firstName, lastName);
                 return false;
             }
 
             if (response.IsSuccessStatusCode && status.Status.Equals("success", StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogInformation("[OK], {FirstName} {LastName} has been added to Snipe-IT.", firstName, lastName);
-                _logger.LogInformation("Current title: {CurrentTitle}", jobTitle);
+                _logger.LogInformation("[OK] {First} {Last} has been added to Snipe-IT (title '{Title}').",
+                    firstName, lastName, jobTitle);
                 return true;
             }
-            else
-            {
-                _logger.LogWarning("[WARNING] Unexpected response for {FirstName}", firstName);
-                return false;
-            }
+
+            _logger.LogWarning("[WARNING] Unexpected response creating {First} {Last}: {Messages}",
+                firstName, lastName, status.Messages);
+            return false;
         }
         catch (Exception e)
         {
-            _logger.LogWarning("Failed to post : {Error}", e.Message);
+            _logger.LogWarning("Failed to create Snipe-IT user {First} {Last}: {Error}", firstName, lastName, e.Message);
+        }
+
+        return false;
+    }
+
+    public async Task<List<SnipeItAsset>> GetUserAssets(int userId)
+    {
+        var uri = $"{BaseUrl}/api/v1/users/{userId}/assets?limit=500";
+        try
+        {
+            var response = await _httpClient.GetFromJsonAsync<SnipeItAssetsResponse>(uri);
+            return response?.Rows ?? [];
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning("Failed to fetch assets for Snipe-IT user {UserId}: {Error}", userId, e.Message);
+            return [];
+        }
+    }
+
+    public async Task<bool> CheckinAsset(int assetId, string assetLabel, int? statusId, string? note)
+    {
+        if (_options.DryRun)
+        {
+            _logger.LogInformation("[DRY-RUN] Would check in asset {Asset} (ID: {AssetId}){Status}",
+                assetLabel, assetId, statusId is null ? "" : $" and set status_id={statusId}");
+            return true;
+        }
+
+        var uri = $"{BaseUrl}/api/v1/hardware/{assetId}/checkin";
+        var body = new Dictionary<string, object?> { ["note"] = note };
+        if (statusId is not null) body["status_id"] = statusId;
+
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync(uri, body);
+            var status = await response.Content.ReadFromJsonAsync<SnipeItStatus>();
+            if (status is not null
+                && response.IsSuccessStatusCode
+                && status.Status.Equals("success", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("[OK] Checked in asset {Asset} (ID: {AssetId}).", assetLabel, assetId);
+                return true;
+            }
+
+            _logger.LogWarning("[WARNING] Failed to check in asset {Asset} (ID: {AssetId}): {Messages}",
+                assetLabel, assetId, status?.Messages);
+            return false;
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning("Failed to check in asset {Asset} (ID: {AssetId}): {Error}", assetLabel, assetId, e.Message);
+        }
+
+        return false;
+    }
+
+    public async Task<bool> SetSnipeItUserFields(int userId, string displayName, IReadOnlyDictionary<string, object?> fields)
+    {
+        var payload = fields.Where(f => f.Value is not null).ToDictionary(f => f.Key, f => f.Value);
+        if (payload.Count == 0) return true;
+
+        if (_options.DryRun)
+        {
+            _logger.LogInformation("[DRY-RUN] Would update fields for {DisplayName} (ID: {UserId}): {Fields}",
+                displayName, userId, string.Join(", ", payload.Keys));
+            return true;
+        }
+
+        var uri = $"{BaseUrl}/api/v1/users/{userId}";
+        try
+        {
+            var response = await _httpClient.PatchAsJsonAsync(uri, payload);
+            var status = await response.Content.ReadFromJsonAsync<SnipeItStatus>();
+            if (status is not null
+                && response.IsSuccessStatusCode
+                && status.Status.Equals("success", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("[OK] Updated fields for {DisplayName} (ID: {UserId}): {Fields}",
+                    displayName, userId, string.Join(", ", payload.Keys));
+                return true;
+            }
+
+            _logger.LogWarning("[WARNING] Failed to update fields for {DisplayName}: {Messages}",
+                displayName, status?.Messages);
+            return false;
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning("Failed to update fields for {DisplayName}: {Error}", displayName, e.Message);
         }
 
         return false;
