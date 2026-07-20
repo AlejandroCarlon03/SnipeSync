@@ -4,7 +4,7 @@ namespace SnipeITSyncFormerEmployees;
 
 public class FormerEmployeeSync(
     ILogger<FormerEmployeeSync> logger,
-    ISnipeItService snipeItService,
+    IOffboardingService offboardingService,
     EntraUserService entraUserService,
     INotificationService notificationService,
     IAuditService auditService,
@@ -40,85 +40,26 @@ public class FormerEmployeeSync(
 
             summary.Processed++;
 
-            var snipeUser = await snipeItService.FindSnipeItUser(user.DisplayName, user.Mail);
-            if (snipeUser is null)
+            var outcome = await offboardingService.OffboardUserAsync(user.DisplayName, user.Mail, summary);
+
+            if (outcome == OffboardOutcome.NotMatched)
             {
-                logger.LogWarning("No Snipe-IT match found for '{DisplayName}'.", user.DisplayName);
                 summary.Unmatched.Add(user.DisplayName);
                 await reconciliationQueue.EnqueueAsync(new UnmatchedUser(
                     user.Id, user.DisplayName, user.Mail, "No Snipe-IT match", "FormerEmployeeSync", DateTimeOffset.UtcNow));
                 await auditService.RecordAsync("FormerEmployeeSync", user.DisplayName, "SkippedNoMatch", detail: user.Mail);
-                continue;
             }
-
-            if (snipeUser.JobTitle == options.FormerEmployeeTitle)
+            else if (outcome == OffboardOutcome.LookupFailed)
             {
-                logger.LogInformation("{DisplayName} is already marked as {Title}, skipping title update.",
-                    user.DisplayName, options.FormerEmployeeTitle);
-                summary.AlreadyCurrent++;
+                // Transient lookup failure — do NOT enqueue (that's what caused the 429 storm). Leave the
+                // user untouched; they're still disabled in Entra, so tomorrow's scheduled run retries them.
+                logger.LogWarning("Skipping '{DisplayName}' this run — Snipe-IT lookup failed; will retry next run.",
+                    user.DisplayName);
+                summary.Failed++;
             }
-            else
-            {
-                var titleUpdated = await snipeItService.SetSnipeItUserTitle(
-                    snipeUser.Id, user.DisplayName, snipeUser.JobTitle, options.FormerEmployeeTitle);
-
-                if (titleUpdated)
-                {
-                    summary.Offboarded++;
-                    await auditService.RecordAsync("FormerEmployeeSync", user.DisplayName, "MarkedFormerEmployee",
-                        oldValue: snipeUser.JobTitle, newValue: options.FormerEmployeeTitle);
-                }
-                else
-                {
-                    logger.LogWarning("Failed to update {DisplayName} in Snipe-IT.", user.DisplayName);
-                    summary.Failed++;
-                }
-            }
-
-            // Feature 1: reclaim the assets that are the real signal of a departure.
-            await HandleAssetsAsync(snipeUser.Id, user.DisplayName, summary);
         }
 
         logger.LogInformation("Former Employee sync completed.");
         await notificationService.SendRunSummaryAsync(summary);
-    }
-
-    private async Task HandleAssetsAsync(int snipeUserId, string displayName, SyncRunSummary summary)
-    {
-        var assets = await snipeItService.GetUserAssets(snipeUserId);
-        if (assets.Count == 0)
-            return;
-
-        logger.LogInformation("{DisplayName} still has {Count} asset(s) checked out in Snipe-IT.",
-            displayName, assets.Count);
-
-        foreach (var asset in assets)
-        {
-            logger.LogInformation("  - {Asset} ({Model}), status '{Status}'",
-                asset.DisplayLabel, asset.Model?.Name ?? "unknown model", asset.StatusLabel?.Name ?? "unknown");
-
-            if (!options.AutoCheckinAssets)
-            {
-                // Log-only mode: tell IT what to physically reclaim.
-                summary.AssetsNeedingAttention.Add($"{displayName}: {asset.DisplayLabel}");
-                continue;
-            }
-
-            var note = $"Auto check-in: {displayName} deactivated in Entra ID ({DateTime.UtcNow:yyyy-MM-dd}).";
-            var checkedIn = await snipeItService.CheckinAsset(
-                asset.Id, asset.DisplayLabel, options.DeprovisionedStatusId, note);
-
-            if (checkedIn)
-            {
-                summary.AssetsCheckedIn++;
-                await auditService.RecordAsync("FormerEmployeeSync", displayName, "AssetCheckedIn",
-                    oldValue: asset.StatusLabel?.Name, newValue: options.DeprovisionedStatusId?.ToString(),
-                    detail: asset.DisplayLabel);
-            }
-            else
-            {
-                summary.AssetsNeedingAttention.Add($"{displayName}: {asset.DisplayLabel}");
-            }
-        }
     }
 }

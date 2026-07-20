@@ -12,7 +12,8 @@ public class OnboardEmployeeSync(
     SyncOptions options)
 {
     [Function("OnboardEmployeeSync")]
-    public async Task Run([TimerTrigger("0 0 2 * * *")] TimerInfo myTimer)
+    // Runs at 03:00, an hour after FormerEmployeeSync (02:00), so the two don't hammer Snipe-IT at once.
+    public async Task Run([TimerTrigger("0 0 3 * * *")] TimerInfo myTimer)
     {
         logger.LogInformation("Starting scheduled sync for new employees at: {Time}{DryRun}",
             DateTime.Now, options.DryRun ? " [DRY-RUN]" : "");
@@ -52,7 +53,20 @@ public class OnboardEmployeeSync(
 
             summary.Processed++;
 
-            var snipeUser = await snipeItService.FindSnipeItUser(user.DisplayName, user.Mail);
+            SnipeItUser? snipeUser;
+            try
+            {
+                snipeUser = await snipeItService.FindSnipeItUser(user.DisplayName, user.Mail);
+            }
+            catch (Exception e)
+            {
+                // Lookup failed (e.g. throttling past the retry policy). Skip rather than guess —
+                // treating this as "not found" would create a DUPLICATE Snipe-IT user. Retry next run.
+                logger.LogWarning("Skipping '{DisplayName}' this run — Snipe-IT lookup failed: {Error}",
+                    user.DisplayName, e.Message);
+                summary.Failed++;
+                continue;
+            }
 
             if (snipeUser is not null)
             {
@@ -99,7 +113,19 @@ public class OnboardEmployeeSync(
             if (user.DisplayName is null || user.Mail is null)
                 continue;
 
-            var snipeUser = await snipeItService.FindSnipeItUser(user.DisplayName, user.Mail);
+            SnipeItUser? snipeUser;
+            try
+            {
+                snipeUser = await snipeItService.FindSnipeItUser(user.DisplayName, user.Mail);
+            }
+            catch (Exception e)
+            {
+                logger.LogWarning("Rehire scan: skipping '{DisplayName}' — Snipe-IT lookup failed: {Error}",
+                    user.DisplayName, e.Message);
+                summary.Failed++;
+                continue;
+            }
+
             if (snipeUser is not null && snipeUser.JobTitle == options.FormerEmployeeTitle)
                 await RevertRehireAsync(user, snipeUser, summary);
         }

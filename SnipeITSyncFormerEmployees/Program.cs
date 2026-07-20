@@ -2,6 +2,7 @@ using Azure.Identity;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
 using SnipeITSyncFormerEmployees;
 
@@ -10,10 +11,14 @@ var builder = FunctionsApplication.CreateBuilder(args);
 // Config-driven options (feature 7) — read once from environment / app settings.
 builder.Services.AddSingleton<SyncOptions>();
 
-builder.Services.AddHttpClient<ISnipeItService, SnipeItService>();
+// Snipe-IT rate-limits hard (429); retry with backoff so throttling isn't misread as "not found".
+builder.Services.AddHttpClient<ISnipeItService, SnipeItService>()
+    .AddPolicyHandler((sp, _) =>
+        SnipeItRetryPolicy.Create(sp.GetRequiredService<ILoggerFactory>().CreateLogger("SnipeItRetry")));
 builder.Services.AddHttpClient<INotificationService, TeamsNotificationService>();
 
 builder.Services.AddSingleton<EntraUserService>();
+builder.Services.AddSingleton<IOffboardingService, OffboardingService>();
 builder.Services.AddSingleton<IAuditService, TableAuditService>();
 builder.Services.AddSingleton<IReconciliationQueue, StorageReconciliationQueue>();
 

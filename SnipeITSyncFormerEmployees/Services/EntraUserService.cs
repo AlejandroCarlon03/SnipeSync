@@ -79,6 +79,26 @@ public class EntraUserService(
         }
     }
 
+    /// <summary>
+    /// Fetches a single user by Entra object id, including alternate identifiers used to
+    /// re-attempt a Snipe-IT match during reconciliation (mail / UPN / proxy addresses).
+    /// </summary>
+    public async Task<User?> GetUserByIdAsync(string id)
+    {
+        try
+        {
+            return await graphServiceClient.Users[id].GetAsync(rc =>
+            {
+                rc.QueryParameters.Select = ["id", "displayName", "mail", "userPrincipalName", "proxyAddresses"];
+            });
+        }
+        catch (Exception e)
+        {
+            logger.LogWarning("Failed to fetch Entra user {Id}: {Error}", id, e.Message);
+            return null;
+        }
+    }
+
     /// <summary>Best-effort display name of the user's manager from an expanded query.</summary>
     public static string? GetManagerName(User user)
     {

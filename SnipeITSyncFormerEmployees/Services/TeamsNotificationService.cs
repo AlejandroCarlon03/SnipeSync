@@ -28,6 +28,8 @@ public class TeamsNotificationService(HttpClient httpClient, ILogger<TeamsNotifi
             Fact("Onboarded", summary.Onboarded),
             Fact("Rehired / reactivated", summary.Reactivated),
             Fact("Assets checked in", summary.AssetsCheckedIn),
+            Fact("License seats reclaimed", summary.LicensesReclaimed),
+            Fact("Accessories reclaimed", summary.AccessoriesReclaimed),
             Fact("Skipped (no Snipe-IT match)", summary.Skipped),
             Fact("Failed", summary.Failed)
         };

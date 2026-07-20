@@ -15,6 +15,8 @@ public class SyncRunSummary(string functionName)
     public int Onboarded { get; set; }
     public int Reactivated { get; set; }
     public int AssetsCheckedIn { get; set; }
+    public int LicensesReclaimed { get; set; }
+    public int AccessoriesReclaimed { get; set; }
     public int AlreadyCurrent { get; set; }
     public int Failed { get; set; }
 
@@ -25,7 +27,9 @@ public class SyncRunSummary(string functionName)
     public List<string> AssetsNeedingAttention { get; } = [];
 
     public int Skipped => Unmatched.Count;
-    public bool HasActivity => Offboarded + Onboarded + Reactivated + AssetsCheckedIn + Failed + Skipped > 0;
+    public bool HasActivity =>
+        Offboarded + Onboarded + Reactivated + AssetsCheckedIn
+        + LicensesReclaimed + AccessoriesReclaimed + Failed + Skipped > 0;
 }
 
 /// <summary>An Entra user we could not match to Snipe-IT, queued for a second-pass reconciliation.</summary>

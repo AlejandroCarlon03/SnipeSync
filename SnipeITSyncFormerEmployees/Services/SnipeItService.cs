@@ -43,8 +43,11 @@ public class SnipeItService : ISnipeItService
             }
             catch (Exception e)
             {
-                _logger.LogWarning("Failed to find Snipe-IT user by email {Email}: {Error}", email, e.Message);
-                return null;
+                // A failed lookup (e.g. throttling that survived the retry policy) is NOT a definitive
+                // miss — returning null here would let a departed employee be treated as "not in Snipe-IT"
+                // and, on the onboarding side, cause a duplicate user to be created. Surface it instead.
+                _logger.LogWarning("Failed to look up Snipe-IT user by email {Email}: {Error}", email, e.Message);
+                throw;
             }
         }
         else
@@ -64,8 +67,9 @@ public class SnipeItService : ISnipeItService
             }
             catch (Exception e)
             {
-                _logger.LogWarning("Failed to find Snipe-IT user by name {Name}: {Error}", fullName, e.Message);
-                return null;
+                // See the email branch above: a lookup failure is not a "not found" — surface it.
+                _logger.LogWarning("Failed to look up Snipe-IT user by name {Name}: {Error}", fullName, e.Message);
+                throw;
             }
         }
     }
@@ -255,6 +259,135 @@ public class SnipeItService : ISnipeItService
         catch (Exception e)
         {
             _logger.LogWarning("Failed to update fields for {DisplayName}: {Error}", displayName, e.Message);
+        }
+
+        return false;
+    }
+
+    public async Task<List<SnipeItLicenseSeat>> GetUserLicenseSeats(int userId)
+    {
+        // Step 1: which licenses is the user assigned to?
+        var licensesUri = $"{BaseUrl}/api/v1/users/{userId}/licenses?limit=500";
+        List<SnipeItUserLicense> licenses;
+        try
+        {
+            var response = await _httpClient.GetFromJsonAsync<SnipeItUserLicensesResponse>(licensesUri);
+            licenses = response?.Rows ?? [];
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning("Failed to fetch licenses for Snipe-IT user {UserId}: {Error}", userId, e.Message);
+            return [];
+        }
+
+        // Step 2: for each license, find the seat(s) assigned to this user (check-in is per seat).
+        var seats = new List<SnipeItLicenseSeat>();
+        foreach (var license in licenses)
+        {
+            var seatsUri = $"{BaseUrl}/api/v1/licenses/{license.Id}/seats?limit=500";
+            try
+            {
+                var response = await _httpClient.GetFromJsonAsync<SnipeItLicenseSeatsResponse>(seatsUri);
+                var userSeats = (response?.Rows ?? [])
+                    .Where(s => s.AssignedTo?.Id == userId)
+                    .Select(s => new SnipeItLicenseSeat(s.Id, license.Id, license.Name));
+                seats.AddRange(userSeats);
+            }
+            catch (Exception e)
+            {
+                _logger.LogWarning("Failed to fetch seats for license {LicenseId}: {Error}", license.Id, e.Message);
+            }
+        }
+
+        return seats;
+    }
+
+    public async Task<bool> CheckinLicenseSeat(SnipeItLicenseSeat seat, string? note)
+    {
+        if (_options.DryRun)
+        {
+            _logger.LogInformation("[DRY-RUN] Would check in {Seat}", seat.DisplayLabel);
+            return true;
+        }
+
+        // Snipe-IT checks in a license seat by clearing its assignment.
+        // NOTE: verify against your Snipe-IT version — some expose PATCH .../seats/{id}.
+        var uri = $"{BaseUrl}/api/v1/licenses/{seat.LicenseId}/seats/{seat.SeatId}";
+        try
+        {
+            var response = await _httpClient.PatchAsJsonAsync(uri, new { assigned_to = (int?)null, notes = note });
+            var status = await response.Content.ReadFromJsonAsync<SnipeItStatus>();
+            if (status is not null
+                && response.IsSuccessStatusCode
+                && status.Status.Equals("success", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("[OK] Reclaimed {Seat}.", seat.DisplayLabel);
+                return true;
+            }
+
+            _logger.LogWarning("[WARNING] Failed to reclaim {Seat}: {Messages}", seat.DisplayLabel, status?.Messages);
+            return false;
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning("Failed to reclaim {Seat}: {Error}", seat.DisplayLabel, e.Message);
+        }
+
+        return false;
+    }
+
+    public async Task<List<SnipeItAccessory>> GetUserAccessories(int userId)
+    {
+        var uri = $"{BaseUrl}/api/v1/users/{userId}/accessories?limit=500";
+        try
+        {
+            var response = await _httpClient.GetFromJsonAsync<SnipeItAccessoriesResponse>(uri);
+            return response?.Rows ?? [];
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning("Failed to fetch accessories for Snipe-IT user {UserId}: {Error}", userId, e.Message);
+            return [];
+        }
+    }
+
+    public async Task<bool> CheckinAccessory(SnipeItAccessory accessory, string? note)
+    {
+        if (accessory.PivotId is null)
+        {
+            _logger.LogWarning("Cannot check in accessory {Accessory}: no assignment (pivot) id returned by Snipe-IT.",
+                accessory.DisplayLabel);
+            return false;
+        }
+
+        if (_options.DryRun)
+        {
+            _logger.LogInformation("[DRY-RUN] Would check in accessory {Accessory}", accessory.DisplayLabel);
+            return true;
+        }
+
+        // Snipe-IT accessory check-in targets the assignment pivot id.
+        // NOTE: verify against your Snipe-IT version's accessory check-in route.
+        var uri = $"{BaseUrl}/api/v1/accessories/{accessory.Id}/checkin/{accessory.PivotId}";
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync(uri, new { note });
+            var status = await response.Content.ReadFromJsonAsync<SnipeItStatus>();
+            if (status is not null
+                && response.IsSuccessStatusCode
+                && status.Status.Equals("success", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("[OK] Reclaimed accessory {Accessory}.", accessory.DisplayLabel);
+                return true;
+            }
+
+            _logger.LogWarning("[WARNING] Failed to reclaim accessory {Accessory}: {Messages}",
+                accessory.DisplayLabel, status?.Messages);
+            return false;
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning("Failed to reclaim accessory {Accessory}: {Error}", accessory.DisplayLabel, e.Message);
         }
 
         return false;
