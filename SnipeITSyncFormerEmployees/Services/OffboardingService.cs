@@ -58,39 +58,40 @@ public class OffboardingService(
             return OffboardOutcome.NotMatched;
         }
 
-        var outcome = OffboardOutcome.AlreadyFormer;
         if (snipeUser.JobTitle == options.FormerEmployeeTitle)
         {
-            logger.LogInformation("{DisplayName} is already marked as {Title}, skipping title update.",
+            // Already offboarded on an earlier run — their assignments were reclaimed then. Skip the
+            // asset/license/accessory GETs entirely: without this, every already-departed employee is
+            // re-scanned on every run, so the nightly workload (and Snipe-IT throttling) grows without
+            // bound as the former-employee roster accumulates. Nothing new to do here.
+            logger.LogInformation("{DisplayName} is already {Title}; skipping title update and reclaim.",
                 displayName, options.FormerEmployeeTitle);
             summary.AlreadyCurrent++;
+            return OffboardOutcome.AlreadyFormer;
         }
-        else
+
+        var titleUpdated = await snipeItService.SetSnipeItUserTitle(
+            snipeUser.Id, displayName, snipeUser.JobTitle, options.FormerEmployeeTitle);
+
+        if (!titleUpdated)
         {
-            var titleUpdated = await snipeItService.SetSnipeItUserTitle(
-                snipeUser.Id, displayName, snipeUser.JobTitle, options.FormerEmployeeTitle);
-
-            if (titleUpdated)
-            {
-                summary.Offboarded++;
-                outcome = OffboardOutcome.Offboarded;
-                await auditService.RecordAsync(summary.FunctionName, displayName, "MarkedFormerEmployee",
-                    oldValue: snipeUser.JobTitle, newValue: options.FormerEmployeeTitle);
-            }
-            else
-            {
-                logger.LogWarning("Failed to update {DisplayName} in Snipe-IT.", displayName);
-                summary.Failed++;
-                outcome = OffboardOutcome.Failed;
-            }
+            // Couldn't flip the title (likely throttling). Don't pile on reclaim calls — the retry
+            // path (next scheduled run / queue redelivery) re-runs the whole offboard from the top.
+            logger.LogWarning("Failed to update {DisplayName} in Snipe-IT.", displayName);
+            summary.Failed++;
+            return OffboardOutcome.Failed;
         }
 
-        // Reclaim everything assigned to the departed user — the real offboarding signal.
+        summary.Offboarded++;
+        await auditService.RecordAsync(summary.FunctionName, displayName, "MarkedFormerEmployee",
+            oldValue: snipeUser.JobTitle, newValue: options.FormerEmployeeTitle);
+
+        // Newly offboarded — this is the run that reclaims everything assigned to them.
         await HandleAssetsAsync(snipeUser.Id, displayName, summary);
         await HandleLicensesAsync(snipeUser.Id, displayName, summary);
         await HandleAccessoriesAsync(snipeUser.Id, displayName, summary);
 
-        return outcome;
+        return OffboardOutcome.Offboarded;
     }
 
     private async Task HandleAssetsAsync(int snipeUserId, string displayName, SyncRunSummary summary)

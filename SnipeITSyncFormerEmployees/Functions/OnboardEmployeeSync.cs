@@ -12,7 +12,8 @@ public class OnboardEmployeeSync(
     SyncOptions options)
 {
     [Function("OnboardEmployeeSync")]
-    public async Task Run([TimerTrigger("0 0 2 * * *")] TimerInfo myTimer)
+    // Runs at 03:00, an hour after FormerEmployeeSync (02:00), so the two don't hammer Snipe-IT at once.
+    public async Task Run([TimerTrigger("0 0 3 * * *")] TimerInfo myTimer)
     {
         logger.LogInformation("Starting scheduled sync for new employees at: {Time}{DryRun}",
             DateTime.Now, options.DryRun ? " [DRY-RUN]" : "");

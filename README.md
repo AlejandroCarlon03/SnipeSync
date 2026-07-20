@@ -13,8 +13,10 @@ Runs daily at 2:00 AM. Queries Entra ID for accounts with `accountEnabled = fals
 - **Reclaims everything assigned to them** — hardware **assets** (optionally stamping a deprovisioned status label), **license seats**, and **accessories**. When an auto-checkin toggle is off, it still logs what the person holds so IT knows what to physically/manually reclaim. The per-user offboarding logic lives in a shared `IOffboardingService` reused by the reconciliation function below.
 - Records each decision to an audit trail and rolls the results into a run summary.
 
+> **Steady-state cost:** the Entra `accountEnabled = false` set grows as people leave, but a user who is *already* marked former was reclaimed on the run that first flagged them — so the offboarding logic skips the asset/license/accessory lookups for them and only does a single match check. That keeps the nightly Snipe-IT call volume (and its rate-limiting) roughly flat instead of climbing with every past departure.
+
 ### `OnboardEmployeeSync`
-Also runs daily at 2:00 AM. Queries Entra ID for accounts created in the last _N_ days (default 7) that are enabled, and:
+Runs daily at 3:00 AM — an hour after `FormerEmployeeSync` so the two don't hit Snipe-IT's rate limit simultaneously. Queries Entra ID for accounts created in the last _N_ days (default 7) that are enabled, and:
 
 - Creates a new Snipe-IT user (random temp password, `ldap_import` enabled) for anyone missing.
 - Pushes **department / manager / office** into configured Snipe-IT custom fields (feature 2).
