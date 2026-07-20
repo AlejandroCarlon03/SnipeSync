@@ -10,6 +10,12 @@ public enum OffboardOutcome
     AlreadyFormer,
     /// <summary>No Snipe-IT user matched — caller decides whether to enqueue / escalate.</summary>
     NotMatched,
+    /// <summary>
+    /// The Snipe-IT lookup itself failed (e.g. throttling that outlasted the retry policy), so we
+    /// genuinely don't know whether the user exists. Distinct from NotMatched: the caller must NOT
+    /// treat this as a definitive miss (don't enqueue for reconciliation, don't consume the message).
+    /// </summary>
+    LookupFailed,
     /// <summary>User matched but the title update failed.</summary>
     Failed
 }
@@ -33,7 +39,19 @@ public class OffboardingService(
 {
     public async Task<OffboardOutcome> OffboardUserAsync(string displayName, string? email, SyncRunSummary summary)
     {
-        var snipeUser = await snipeItService.FindSnipeItUser(displayName, email ?? string.Empty);
+        SnipeItUser? snipeUser;
+        try
+        {
+            snipeUser = await snipeItService.FindSnipeItUser(displayName, email ?? string.Empty);
+        }
+        catch (Exception e)
+        {
+            // Couldn't complete the lookup — don't guess. Signal LookupFailed so the caller retries
+            // later rather than mislabeling a real employee as unmatched.
+            logger.LogWarning("Snipe-IT lookup failed for '{DisplayName}': {Error}", displayName, e.Message);
+            return OffboardOutcome.LookupFailed;
+        }
+
         if (snipeUser is null)
         {
             logger.LogWarning("No Snipe-IT match found for '{DisplayName}'.", displayName);

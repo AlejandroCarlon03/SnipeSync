@@ -73,6 +73,12 @@ public class SyncOptions
     public string AuditTableName { get; }
 
     // --- Feature 8: reconciliation / dead-letter queue --------------------------
+    /// <summary>
+    /// Always the function app's own storage (AzureWebJobsStorage). The ReconciliationQueueProcessor
+    /// trigger binds to that same connection, and a QueueTrigger cannot express the "custom setting,
+    /// else fall back" logic this class uses elsewhere — so the producer is pinned to it deliberately.
+    /// Splitting the queue onto a second account would make writes land where nothing is listening.
+    /// </summary>
     public string? ReconciliationQueueConnectionString { get; }
     public string ReconciliationQueueName { get; }
 
@@ -104,7 +110,7 @@ public class SyncOptions
         AuditTableConnectionString = Get("AUDIT_TABLE_CONNECTION_STRING") ?? webJobsStorage;
         AuditTableName = Get("AUDIT_TABLE_NAME") ?? "SyncAuditLog";
 
-        ReconciliationQueueConnectionString = Get("RECONCILIATION_QUEUE_CONNECTION_STRING") ?? webJobsStorage;
+        ReconciliationQueueConnectionString = webJobsStorage;
         ReconciliationQueueName = Get("RECONCILIATION_QUEUE_NAME") ?? "sync-unmatched";
     }
 

@@ -17,6 +17,8 @@
         <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Timer" Version="4.3.1" />
         <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Storage.Queues" Version="5.5.0" />
         <PackageReference Include="Microsoft.Azure.Functions.Worker.OpenTelemetry" Version="1.2.0"/>
+        <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="9.0.0" />
+        <PackageReference Include="Polly.Extensions.Http" Version="3.0.0" />
         <PackageReference Include="Microsoft.Graph" Version="6.2.0" />
         <PackageReference Include="Microsoft.Identity.Web" Version="4.11.0" />
         <PackageReference Include="Microsoft.Identity.Web.GraphServiceClient" Version="4.11.0" />

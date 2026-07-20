@@ -38,6 +38,7 @@ All three functions share a single Snipe-IT client (`ISnipeItService` / `SnipeIt
 | 7 | Config-driven mapping | Titles, matching, field columns, etc. all read from app settings — see below. |
 | 8 | Retry / dead-letter | Unmatched users are queued to Azure Storage Queue and drained by `ReconciliationQueueProcessor`; failures land in `sync-unmatched-poison`. |
 | 9 | Group scoping | `EMPLOYEE_SECURITY_GROUP_ID` scopes both queries to a security group's transitive members. |
+| 10 | Throttle-aware Snipe-IT client | The Snipe-IT `HttpClient` retries `429`/`5xx`/transient errors with backoff (honoring `Retry-After`) via a Polly policy. A lookup that still fails is surfaced as a lookup failure — never mistaken for "user not found" — so throttling can't silently skip a real employee or create a duplicate. The reconciliation queue drains one message at a time (`batchSize: 1`) to avoid stampeding Snipe-IT. |
 
 All of the above **degrade gracefully**: if the relevant setting isn't present, that feature is skipped and the core sync keeps working.
 
@@ -76,8 +77,12 @@ Set these in `local.settings.json` (`Values`, git-ignored) locally, or as Applic
 | `TEAMS_WEBHOOK_URL` | _(unset)_ | Teams incoming-webhook URL for the run digest. |
 | `AUDIT_TABLE_CONNECTION_STRING` | `AzureWebJobsStorage` | Storage account for the audit table. |
 | `AUDIT_TABLE_NAME` | `SyncAuditLog` | Audit table name. |
-| `RECONCILIATION_QUEUE_CONNECTION_STRING` | `AzureWebJobsStorage` | Storage account for the unmatched-user queue. |
 | `RECONCILIATION_QUEUE_NAME` | `sync-unmatched` | Queue name. **Must be present as an app setting** — the `ReconciliationQueueProcessor` binds `%RECONCILIATION_QUEUE_NAME%` at startup and won't load if it's missing. |
+
+> The unmatched-user queue always lives in `AzureWebJobsStorage` — the same connection the
+> `ReconciliationQueueProcessor` trigger binds to. It is deliberately not configurable: a queue trigger
+> can't express the "custom setting, else fall back" default this app uses elsewhere, so pointing the
+> writer at a second storage account would send messages where nothing is listening.
 
 > **Finding custom-field db_columns:** in Snipe-IT, `GET /api/v1/fields` lists each custom field's `db_column_name` (the `_snipeit_*` value). Use those for the `SNIPEIT_CF_*` settings. Requires a user fieldset with those fields attached.
 

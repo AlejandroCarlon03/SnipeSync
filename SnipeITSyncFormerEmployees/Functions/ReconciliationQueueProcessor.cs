@@ -14,7 +14,6 @@ public class ReconciliationQueueProcessor(
     ILogger<ReconciliationQueueProcessor> logger,
     IOffboardingService offboardingService,
     EntraUserService entraUserService,
-    INotificationService notificationService,
     IAuditService auditService,
     SyncOptions options)
 {
@@ -60,14 +59,23 @@ public class ReconciliationQueueProcessor(
 
             case OffboardOutcome.NotMatched:
                 // Definitive miss — a disabled user with genuinely no Snipe-IT record. Consume the
-                // message (don't loop), record it, and surface it for a human to review.
+                // message (don't loop) and record it for a human to review.
+                //
+                // No Teams post here: this function runs once per message, so a digest card would
+                // fire per unmatched user. FormerEmployeeSync already named them in its run summary
+                // when it enqueued them; the audit row below is the durable record of the retry.
                 logger.LogWarning("Still no Snipe-IT match for '{DisplayName}' after reconciliation.",
                     message.DisplayName);
                 await auditService.RecordAsync("ReconciliationQueueProcessor", message.DisplayName,
                     "UnmatchedAfterReconciliation", detail: message.Email);
-                summary.Unmatched.Add(message.DisplayName);
-                await notificationService.SendRunSummaryAsync(summary);
                 break;
+
+            case OffboardOutcome.LookupFailed:
+                // Couldn't complete the Snipe-IT lookup (throttling that outlasted the retry policy).
+                // Don't consume the message as a miss — throw so the runtime redelivers it later; after
+                // maxDequeueCount (host.json) it lands in sync-unmatched-poison for a human to review.
+                throw new InvalidOperationException(
+                    $"Snipe-IT lookup failed for '{message.DisplayName}' during reconciliation; will retry.");
 
             case OffboardOutcome.Failed:
                 // The user matched but a write failed — likely transient. Throw so the runtime

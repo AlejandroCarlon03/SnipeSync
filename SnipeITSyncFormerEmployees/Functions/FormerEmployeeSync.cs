@@ -49,6 +49,14 @@ public class FormerEmployeeSync(
                     user.Id, user.DisplayName, user.Mail, "No Snipe-IT match", "FormerEmployeeSync", DateTimeOffset.UtcNow));
                 await auditService.RecordAsync("FormerEmployeeSync", user.DisplayName, "SkippedNoMatch", detail: user.Mail);
             }
+            else if (outcome == OffboardOutcome.LookupFailed)
+            {
+                // Transient lookup failure — do NOT enqueue (that's what caused the 429 storm). Leave the
+                // user untouched; they're still disabled in Entra, so tomorrow's scheduled run retries them.
+                logger.LogWarning("Skipping '{DisplayName}' this run — Snipe-IT lookup failed; will retry next run.",
+                    user.DisplayName);
+                summary.Failed++;
+            }
         }
 
         logger.LogInformation("Former Employee sync completed.");

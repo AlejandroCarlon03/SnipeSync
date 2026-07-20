@@ -43,8 +43,11 @@ public class SnipeItService : ISnipeItService
             }
             catch (Exception e)
             {
-                _logger.LogWarning("Failed to find Snipe-IT user by email {Email}: {Error}", email, e.Message);
-                return null;
+                // A failed lookup (e.g. throttling that survived the retry policy) is NOT a definitive
+                // miss — returning null here would let a departed employee be treated as "not in Snipe-IT"
+                // and, on the onboarding side, cause a duplicate user to be created. Surface it instead.
+                _logger.LogWarning("Failed to look up Snipe-IT user by email {Email}: {Error}", email, e.Message);
+                throw;
             }
         }
         else
@@ -64,8 +67,9 @@ public class SnipeItService : ISnipeItService
             }
             catch (Exception e)
             {
-                _logger.LogWarning("Failed to find Snipe-IT user by name {Name}: {Error}", fullName, e.Message);
-                return null;
+                // See the email branch above: a lookup failure is not a "not found" — surface it.
+                _logger.LogWarning("Failed to look up Snipe-IT user by name {Name}: {Error}", fullName, e.Message);
+                throw;
             }
         }
     }
