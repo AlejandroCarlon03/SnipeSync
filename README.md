@@ -7,7 +7,7 @@ SnipeSync keeps Snipe-IT aligned with the real state of your organization's Entr
 ## What it does
 
 ### `FormerEmployeeSync`
-Runs daily at 2:00 AM. Queries Entra ID for accounts with `accountEnabled = false`, matches each to a Snipe-IT user by email (or full name as a fallback), and:
+Runs daily at 2:00 AM. Queries Entra ID for accounts with `accountEnabled = false` (paging through every Graph result page), matches each to a Snipe-IT user by email — case-insensitively, falling back to a full-name match when the email search misses — and:
 
 - Sets their Snipe-IT job title to the configured **former-employee** title (default `"Former Employee"`).
 - **Reclaims everything assigned to them** — hardware **assets** (optionally stamping a deprovisioned status label), **license seats**, and **accessories**. When an auto-checkin toggle is off, it still logs what the person holds so IT knows what to physically/manually reclaim. The per-user offboarding logic lives in a shared `IOffboardingService` reused by the reconciliation function below.
@@ -58,7 +58,7 @@ Set these in `local.settings.json` (`Values`, git-ignored) locally, or as Applic
 | `SNIPEIT_URL` | Base URL of your Snipe-IT instance |
 | `SNIPEIT_API_KEY` | Snipe-IT API token (search/read/update/create users; check in assets, license seats, and accessories) |
 
-### Optional (new)
+### Optional
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -121,6 +121,7 @@ Make sure the required app settings (and any optional ones you use) are configur
 
 ## Notes / known behavior
 
-- Matching is exact email first, exact full-name fallback; otherwise the user is skipped, queued for reconciliation, and surfaced in the digest rather than guessed at.
+- **Matching order:** case-insensitive email first; if that misses (blank or stale email on the Snipe-IT record), a case-insensitive full-name match. Trailing parentheticals in the Entra display name — e.g. `"Jane Doe (Former Employee)"` from offboarding renames — are stripped before comparing. If two Snipe-IT users share the name, the sync refuses to guess: the user is queued for reconciliation and surfaced in the digest instead.
 - Created users get `ldap_import: 1` and a random temp password, since auth is expected via LDAP/AD.
-- Graph queries currently read the first result page only (pre-existing behavior). If your disabled/enabled/created sets exceed a page, add paging via `PageIterator`.
+- Graph queries walk every result page via `PageIterator`, so large disabled/enabled/created sets are handled in full.
+- **Testing from the portal:** in Test/Run, click **Run** once and then just switch to the output/log view — clicking Run again on the Output tab fires a *second* invocation, which doubles the Snipe-IT call volume and makes the logs look duplicated.
