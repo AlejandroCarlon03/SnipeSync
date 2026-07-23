@@ -22,6 +22,17 @@ Runs daily at 3:00 AM — an hour after `FormerEmployeeSync` so the two don't hi
 - Pushes **department / manager / office** into configured Snipe-IT custom fields (feature 2).
 - **Reverts rehires** (feature 3): if a re-enabled user already exists in Snipe-IT with the former-employee title, their title is restored. Set `REHIRE_FULL_SCAN=true` to also scan all enabled accounts (not just recently-created ones) — combine with group scoping to bound the cost.
 
+### `AuditQuery` (HTTP)
+`GET /api/audit` — function-key protected (the response contains employee PII). Runs a
+parameterized Cosmos SQL query over the audit history and returns JSON. Only active when the
+Cosmos audit backend is configured; returns `503` otherwise. Optional query params: `user`,
+`action`, `function`, `from` (ISO date), `to` (ISO date), `limit` (default 100, max 1000). The
+Cosmos request-unit charge for the query is returned in the `x-cosmos-ru` response header.
+
+```
+GET /api/audit?user=Jane%20Doe&from=2026-07-01&limit=50&code=<function-key>
+```
+
 ### `ReconciliationQueueProcessor`
 Queue-triggered (drains the `sync-unmatched` queue). When `FormerEmployeeSync` can't match a departed Entra user to a Snipe-IT record, it enqueues them here instead of dropping them. This function retries the match — including **alternate Entra identifiers** (mail, UPN, proxy addresses via a fresh Graph lookup) — and, on a hit, runs the same offboarding action through `IOffboardingService`. Genuine misses are audited (`UnmatchedAfterReconciliation`) and surfaced in the digest; transient write failures bubble up so the runtime retries and eventually moves the message to the **`sync-unmatched-poison`** queue (the real dead-letter). Retry count is set by `extensions.queues.maxDequeueCount` in `host.json`.
 
@@ -35,7 +46,7 @@ All three functions share a single Snipe-IT client (`ISnipeItService` / `SnipeIt
 | 2 | Dept/manager/office sync | Pulled from Graph, pushed to Snipe-IT user custom fields (configure the db_column names). |
 | 3 | Rehire handling | Re-enabled + flagged-former users get their title reverted. |
 | 4 | Notifications | Post-run digest to a Teams incoming webhook. No-op (logs only) when unset. |
-| 5 | Audit trail | One row per decision to Azure Table Storage. No-op when unset. |
+| 5 | Audit trail | One record per decision. **Azure Cosmos DB** (NoSQL) when `COSMOS_CONNECTION_STRING` is set — queryable via `GET /api/audit` — otherwise **Azure Table Storage**. No-op when neither is configured. |
 | 6 | Dry-run | `DRY_RUN=true` runs all logic but skips every POST/PATCH, logging what *would* happen. |
 | 7 | Config-driven mapping | Titles, matching, field columns, etc. all read from app settings — see below. |
 | 8 | Retry / dead-letter | Unmatched users are queued to Azure Storage Queue and drained by `ReconciliationQueueProcessor`; failures land in `sync-unmatched-poison`. |
@@ -77,8 +88,11 @@ Set these in `local.settings.json` (`Values`, git-ignored) locally, or as Applic
 | `EMPLOYEE_SECURITY_GROUP_ID` | _(unset)_ | Scope both queries to this security group's transitive members. |
 | `ONBOARD_LOOKBACK_DAYS` | `7` | Look-back window for the onboarding query. |
 | `TEAMS_WEBHOOK_URL` | _(unset)_ | Teams incoming-webhook URL for the run digest. |
-| `AUDIT_TABLE_CONNECTION_STRING` | `AzureWebJobsStorage` | Storage account for the audit table. |
-| `AUDIT_TABLE_NAME` | `SyncAuditLog` | Audit table name. |
+| `AUDIT_TABLE_CONNECTION_STRING` | `AzureWebJobsStorage` | Storage account for the audit table (Table Storage backend). |
+| `AUDIT_TABLE_NAME` | `SyncAuditLog` | Audit table name (Table Storage backend). |
+| `COSMOS_CONNECTION_STRING` | _(unset)_ | When set, audit records go to **Cosmos DB** instead of Table Storage, and `GET /api/audit` becomes active. |
+| `COSMOS_DATABASE_NAME` | `SnipeSync` | Cosmos database (created if missing). |
+| `COSMOS_AUDIT_CONTAINER` | `AuditLog` | Cosmos container for audit records (created if missing, partition key `/ym`). |
 | `RECONCILIATION_QUEUE_NAME` | `sync-unmatched` | Queue name. **Must be present as an app setting** — the `ReconciliationQueueProcessor` binds `%RECONCILIATION_QUEUE_NAME%` at startup and won't load if it's missing. |
 
 > The unmatched-user queue always lives in `AzureWebJobsStorage` — the same connection the
@@ -93,7 +107,7 @@ Set these in `local.settings.json` (`Values`, git-ignored) locally, or as Applic
 - **.NET 9**, C# — Azure Functions isolated worker (V4)
 - **Microsoft Graph SDK** 6.2 for Entra ID queries (client-credentials auth)
 - **Snipe-IT REST API** via a typed `HttpClient`
-- **Azure.Data.Tables** (audit) and **Azure.Storage.Queues** (reconciliation)
+- **Azure Cosmos DB** (NoSQL) for the queryable audit trail, with **Azure.Data.Tables** as the fallback audit backend; **Azure.Storage.Queues** (reconciliation)
 - **OpenTelemetry** → Azure Monitor
 
 ## Prerequisites
@@ -109,7 +123,17 @@ dotnet restore
 func start
 ```
 
-Both functions are timer-triggered (`0 0 2 * * *`). To test on demand, use the Core Tools' manual timer invocation, or temporarily change the cron expression while debugging. Set `DRY_RUN=true` to exercise the full logic against prod Snipe-IT without side effects.
+The two sync functions are timer-triggered (`0 0 2 * * *` / `0 0 3 * * *`). To test on demand, use
+the Core Tools' manual timer invocation, or temporarily change the cron expression while debugging.
+Set `DRY_RUN=true` to exercise the full logic against prod Snipe-IT without side effects (audit rows
+are still written under dry-run, so it's a safe way to populate Cosmos for query practice).
+
+**Cosmos audit backend (optional):** to try the queryable audit trail locally, either run the
+[Azure Cosmos DB Emulator](https://learn.microsoft.com/azure/cosmos-db/how-to-develop-emulator) and
+point `COSMOS_CONNECTION_STRING` at it, or create a **serverless** Cosmos account (cheapest for low
+volume). The database and container are created automatically on first write. Then hit
+`GET http://localhost:7071/api/audit` (Core Tools prints the function key at startup). Leave
+`COSMOS_CONNECTION_STRING` empty to keep using Table Storage.
 
 ## Deployment
 
@@ -117,7 +141,7 @@ Both functions are timer-triggered (`0 0 2 * * *`). To test on demand, use the C
 func azure functionapp publish <your-function-app-name>
 ```
 
-Make sure the required app settings (and any optional ones you use) are configured before the timers fire. In production, prefer Key Vault references over storing secrets directly.
+Make sure the required app settings (and any optional ones you use) are configured before the timers fire. In production, prefer Key Vault references over storing secrets directly — this applies to `COSMOS_CONNECTION_STRING` too, though **managed identity** (AAD-based Cosmos data-plane access) is the preferred prod auth and a natural next improvement over a connection string.
 
 ## Notes / known behavior
 

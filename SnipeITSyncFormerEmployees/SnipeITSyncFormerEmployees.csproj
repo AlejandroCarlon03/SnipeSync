@@ -12,6 +12,9 @@
         <FrameworkReference Include="Microsoft.AspNetCore.App"/>
         <PackageReference Include="Azure.Data.Tables" Version="12.9.1" />
         <PackageReference Include="Azure.Identity" Version="1.21.0" />
+        <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.46.0" />
+        <!-- Cosmos SDK v3's default serializer requires an explicit Newtonsoft.Json reference. -->
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
         <PackageReference Include="Azure.Storage.Queues" Version="12.19.1" />
         <PackageReference Include="Microsoft.Azure.Functions.Worker" Version="2.52.0"/>
         <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Timer" Version="4.3.1" />
