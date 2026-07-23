@@ -42,26 +42,27 @@ public class AuditQueryFunction(ILogger<AuditQueryFunction> logger, SyncOptions 
         if (!TryParseDate(q["to"], out var to))
             return await Text(req, HttpStatusCode.BadRequest, "Invalid 'to' date; use ISO 8601 (e.g. 2026-07-31).");
 
-        // Parameterized SQL — never interpolate user input into the query text. Each "@p IS NULL OR
-        // c.x = @p" clause makes the filter optional without branching the query string.
-        var sql = """
-            SELECT * FROM c
-            WHERE (@user IS NULL OR c.user = @user)
-              AND (@action IS NULL OR c.action = @action)
-              AND (@function IS NULL OR c.function = @function)
-              AND (@from IS NULL OR c.timestampUtc >= @from)
-              AND (@to IS NULL OR c.timestampUtc <= @to)
-            ORDER BY c.timestampUtc DESC
-            OFFSET 0 LIMIT @limit
-            """;
+        // Build the WHERE clause dynamically — only filters that were actually supplied become
+        // conditions. Cosmos NoSQL has no "@param IS NULL" postfix operator (that's a T-SQL-ism),
+        // so the optional-filter trick from SQL Server doesn't apply here. The condition fragments
+        // are fixed strings; only values flow through parameters, so this stays injection-safe.
+        var conditions = new List<string>();
+        var parameters = new List<(string Name, object Value)>();
 
-        var query = new QueryDefinition(sql)
-            .WithParameter("@user", user)
-            .WithParameter("@action", action)
-            .WithParameter("@function", function)
-            .WithParameter("@from", from?.ToString("o"))
-            .WithParameter("@to", to?.ToString("o"))
-            .WithParameter("@limit", limit);
+        if (user is not null) { conditions.Add("c.user = @user"); parameters.Add(("@user", user)); }
+        if (action is not null) { conditions.Add("c.action = @action"); parameters.Add(("@action", action)); }
+        if (function is not null) { conditions.Add("c.function = @function"); parameters.Add(("@function", function)); }
+        if (from is not null) { conditions.Add("c.timestampUtc >= @from"); parameters.Add(("@from", from.Value.ToString("o"))); }
+        if (to is not null) { conditions.Add("c.timestampUtc <= @to"); parameters.Add(("@to", to.Value.ToString("o"))); }
+
+        var where = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : string.Empty;
+        // limit is a validated, clamped int (not user text), so inlining it avoids any question of
+        // parameterized-LIMIT support across Cosmos versions.
+        var sql = $"SELECT * FROM c {where} ORDER BY c.timestampUtc DESC OFFSET 0 LIMIT {limit}";
+
+        var query = new QueryDefinition(sql);
+        foreach (var (name, value) in parameters)
+            query = query.WithParameter(name, value);
 
         try
         {
