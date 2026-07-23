@@ -32,14 +32,15 @@ public class SnipeItService : ISnipeItService
             {
                 var response = await _httpClient.GetFromJsonAsync<SnipeItSearchResponse>(uri);
                 var rows = response?.Rows ?? [];
-                var emailMatch = rows.FirstOrDefault(x => x.Email.Equals(email));
+                // Case-insensitive and null-safe: Snipe-IT may store the email with different casing,
+                // and rows without an email must not blow up the whole lookup.
+                var emailMatch = rows.FirstOrDefault(x =>
+                    string.Equals(x.Email, email, StringComparison.OrdinalIgnoreCase));
 
-                if (emailMatch is null)
-                {
-                    _logger.LogInformation("No Snipe-IT match found for email {Email}", email);
-                }
+                if (emailMatch is not null)
+                    return emailMatch;
 
-                return emailMatch;
+                _logger.LogInformation("No Snipe-IT match found for email {Email}; trying name fallback.", email);
             }
             catch (Exception e)
             {
@@ -50,28 +51,56 @@ public class SnipeItService : ISnipeItService
                 throw;
             }
         }
-        else
+
+        // Name fallback: reached when no email is available OR the email search missed (e.g. the
+        // Snipe-IT record has a blank/stale email). Entra display names often carry offboarding
+        // suffixes like "Jane Doe (Former Employee)" — strip any trailing "(...)" before comparing.
+        var normalizedName = NormalizeDisplayName(fullName);
+        var encodedName = Uri.EscapeDataString(normalizedName);
+        var nameUri = $"{BaseUrl}/api/v1/users?search={encodedName}&limit=10";
+        try
         {
-            var encodedName = Uri.EscapeDataString(fullName);
-            var uri = $"{BaseUrl}/api/v1/users?search={encodedName}&limit=10";
-            try
+            var response = await _httpClient.GetFromJsonAsync<SnipeItSearchResponse>(nameUri);
+            var rows = response?.Rows ?? [];
+            var nameMatches = rows.Where(x =>
+                    string.Equals($"{x.FirstName} {x.LastName}".Trim(), normalizedName,
+                        StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (nameMatches.Count > 1)
             {
-                var response = await _httpClient.GetFromJsonAsync<SnipeItSearchResponse>(uri);
-                var rows = response?.Rows ?? [];
-                var nameMatch = rows.FirstOrDefault(x => $"{x.FirstName} {x.LastName}".Equals(fullName));
-                if (nameMatch is null)
-                {
-                    _logger.LogInformation("No Snipe-IT match found for full name {Name}", fullName);
-                }
-                return nameMatch;
+                // Two "Joseph Parker"s — guessing here could offboard the wrong person. Treat as no
+                // match so it lands in the reconciliation audit for a human to resolve.
+                _logger.LogWarning("Ambiguous Snipe-IT name match for {Name}: {Count} users share it; not guessing.",
+                    normalizedName, nameMatches.Count);
+                return null;
             }
-            catch (Exception e)
+
+            if (nameMatches.Count == 0)
             {
-                // See the email branch above: a lookup failure is not a "not found" — surface it.
-                _logger.LogWarning("Failed to look up Snipe-IT user by name {Name}: {Error}", fullName, e.Message);
-                throw;
+                _logger.LogInformation("No Snipe-IT match found for full name {Name}", normalizedName);
+                return null;
             }
+
+            return nameMatches[0];
         }
+        catch (Exception e)
+        {
+            // See the email branch above: a lookup failure is not a "not found" — surface it.
+            _logger.LogWarning("Failed to look up Snipe-IT user by name {Name}: {Error}", normalizedName, e.Message);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Strips a trailing parenthetical from a display name — "Jane Doe (Former Employee)" -> "Jane Doe".
+    /// Entra display names get suffixed like this during offboarding, which would otherwise make
+    /// name matching permanently impossible for exactly the users this sync exists to handle.
+    /// </summary>
+    private static string NormalizeDisplayName(string displayName)
+    {
+        var idx = displayName.IndexOf('(');
+        return (idx > 0 ? displayName[..idx] : displayName).Trim();
     }
 
     public async Task<bool> SetSnipeItUserTitle(int userId, string displayName, string currentTitle, string newTitle)
