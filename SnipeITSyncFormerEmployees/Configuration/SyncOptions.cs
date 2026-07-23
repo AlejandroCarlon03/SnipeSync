@@ -72,6 +72,18 @@ public class SyncOptions
     public string? AuditTableConnectionString { get; }
     public string AuditTableName { get; }
 
+    // --- Feature 5 (Cosmos backend): queryable audit history --------------------
+    /// <summary>
+    /// When set, audit decisions are written to Cosmos DB (queryable via GET /api/audit) instead
+    /// of Azure Table Storage. Null falls back to <see cref="TableAuditService"/>.
+    /// </summary>
+    public string? CosmosConnectionString { get; }
+    public string CosmosDatabaseName { get; }
+    public string CosmosAuditContainer { get; }
+
+    /// <summary>True when a Cosmos connection is configured — selects the Cosmos audit backend.</summary>
+    public bool UseCosmosAudit => CosmosConnectionString is not null;
+
     // --- Feature 8: reconciliation / dead-letter queue --------------------------
     /// <summary>
     /// Always the function app's own storage (AzureWebJobsStorage). The ReconciliationQueueProcessor
@@ -109,6 +121,10 @@ public class SyncOptions
         var webJobsStorage = Get("AzureWebJobsStorage");
         AuditTableConnectionString = Get("AUDIT_TABLE_CONNECTION_STRING") ?? webJobsStorage;
         AuditTableName = Get("AUDIT_TABLE_NAME") ?? "SyncAuditLog";
+
+        CosmosConnectionString = Get("COSMOS_CONNECTION_STRING");
+        CosmosDatabaseName = Get("COSMOS_DATABASE_NAME") ?? "SnipeSync";
+        CosmosAuditContainer = Get("COSMOS_AUDIT_CONTAINER") ?? "AuditLog";
 
         ReconciliationQueueConnectionString = webJobsStorage;
         ReconciliationQueueName = Get("RECONCILIATION_QUEUE_NAME") ?? "sync-unmatched";
