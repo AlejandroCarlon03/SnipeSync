@@ -45,9 +45,10 @@ public class EntraUserService(
     {
         try
         {
+            UserCollectionResponse? firstPage;
             if (options.EmployeeSecurityGroupId is { } groupId)
             {
-                var scoped = await graphServiceClient
+                firstPage = await graphServiceClient
                     .Groups[groupId]
                     .TransitiveMembers
                     .GraphUser
@@ -59,18 +60,40 @@ public class EntraUserService(
                         rc.QueryParameters.Count = true;
                         rc.Headers.Add("ConsistencyLevel", "eventual");
                     });
-                return scoped?.Value?.ToList() ?? [];
+            }
+            else
+            {
+                firstPage = await graphServiceClient.Users.GetAsync(rc =>
+                {
+                    rc.QueryParameters.Filter = filter;
+                    rc.QueryParameters.Select = SelectFields;
+                    rc.QueryParameters.Expand = ExpandManager;
+                    rc.QueryParameters.Count = true;
+                    rc.Headers.Add("ConsistencyLevel", "eventual");
+                });
             }
 
-            var result = await graphServiceClient.Users.GetAsync(rc =>
-            {
-                rc.QueryParameters.Filter = filter;
-                rc.QueryParameters.Select = SelectFields;
-                rc.QueryParameters.Expand = ExpandManager;
-                rc.QueryParameters.Count = true;
-                rc.Headers.Add("ConsistencyLevel", "eventual");
-            });
-            return result?.Value?.ToList() ?? [];
+            if (firstPage is null)
+                return [];
+
+            // Graph pages results (~100 per page). Disabled accounts accumulate forever, so
+            // without walking @odata.nextLink anyone past page 1 silently never gets synced.
+            var users = new List<User>();
+            var iterator = PageIterator<User, UserCollectionResponse>.CreatePageIterator(
+                graphServiceClient, firstPage,
+                user =>
+                {
+                    users.Add(user);
+                    return true;
+                },
+                // nextLink requests must carry the same eventual-consistency header as the first page.
+                request =>
+                {
+                    request.Headers.Add("ConsistencyLevel", "eventual");
+                    return request;
+                });
+            await iterator.IterateAsync();
+            return users;
         }
         catch (Exception e)
         {
