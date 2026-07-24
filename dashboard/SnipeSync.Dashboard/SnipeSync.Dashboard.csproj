@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>SnipeSync.Dashboard</RootNamespace>
+    <!-- Set true to skip the npm/Vite build (e.g. CI without Node, or a .NET-only rebuild). -->
+    <SkipSpaBuild>false</SkipSpaBuild>
+    <!-- The SPA lives in the sibling frontend project; Vite outputs to this project's ./wwwroot. -->
+    <SpaRoot>..\frontend</SpaRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Photino.NET" Version="4.0.16" />
+  </ItemGroup>
+
+  <!-- Build the React SPA (Vite outputs to this project's ./wwwroot) before the .NET build. -->
+  <Target Name="BuildSpa" BeforeTargets="Build"
+          Condition="'$(SkipSpaBuild)' != 'true'"
+          Inputs="$(SpaRoot)\package.json;$(SpaRoot)\vite.config.ts;$(SpaRoot)\index.html"
+          Outputs="wwwroot\index.html">
+    <Message Importance="high" Text="Installing SPA dependencies..." Condition="!Exists('$(SpaRoot)\node_modules')" />
+    <Exec Command="npm install" WorkingDirectory="$(SpaRoot)" Condition="!Exists('$(SpaRoot)\node_modules')" />
+    <Message Importance="high" Text="Building React dashboard (Vite)..." />
+    <Exec Command="npm run build" WorkingDirectory="$(SpaRoot)" />
+  </Target>
+
+  <!-- Copy the generated SPA into the build output (handles files created during this same build). -->
+  <Target Name="CopySpaToOutput" AfterTargets="Build">
+    <ItemGroup>
+      <SpaFiles Include="wwwroot\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SpaFiles)"
+          DestinationFiles="@(SpaFiles->'$(OutDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Ensure the SPA ships alongside the published single-file exe. -->
+  <Target Name="CopySpaToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <SpaFilesPub Include="wwwroot\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SpaFilesPub)"
+          DestinationFiles="@(SpaFilesPub->'$(PublishDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <!-- Untracked local secrets override; copied to output only when present. -->
+    <None Include="appsettings.Local.json" Condition="Exists('appsettings.Local.json')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

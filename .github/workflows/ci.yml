@@ -38,3 +38,30 @@ jobs:
       # CI will start gating merges on passing tests as well.
       # - name: Test
       #   run: dotnet test SnipeITSyncFormerEmployees.sln --configuration Release --no-build --verbosity normal
+
+  build-dashboard:
+    name: Build dashboard (.NET 9 + Vite)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      # The host project's BuildSpa MSBuild target runs `npm install`/`npm run build`
+      # against dashboard/frontend, so Node must be on PATH before `dotnet build` runs.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Restore
+        run: dotnet restore SnipeSync.Dashboard.csproj
+        working-directory: dashboard/SnipeSync.Dashboard
+
+      - name: Build (includes Vite SPA build)
+        run: dotnet build SnipeSync.Dashboard.csproj --configuration Release --no-restore
+        working-directory: dashboard/SnipeSync.Dashboard

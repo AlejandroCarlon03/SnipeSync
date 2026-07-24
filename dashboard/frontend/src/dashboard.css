@@ -1,0 +1,144 @@
+/* Layout for the audit dashboard, layered on top of the reused app.css.
+   Colours reference index.css theme variables with safe fallbacks so the
+   dashboard still renders if a variable is ever renamed. */
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e2e2e2);
+  border-radius: var(--radius-sm, 8px);
+}
+
+.filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted, #6b7280);
+}
+
+.filters input,
+.filters select {
+  font-size: 13px;
+  padding: 7px 9px;
+  border: 1px solid var(--border, #d5d5d5);
+  border-radius: 6px;
+  background: var(--surface, #fff);
+  color: var(--text, inherit);
+}
+
+.btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent, #3b6cf6);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.error {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: color-mix(in srgb, #e0402f 12%, transparent);
+  border: 1px solid color-mix(in srgb, #e0402f 45%, transparent);
+  color: var(--text, #7a1c12);
+  font-size: 13px;
+}
+
+.panel {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e2e2e2);
+  border-radius: var(--radius-sm, 8px);
+  overflow: hidden;
+}
+.panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border, #eee);
+}
+.panel__head h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.table th,
+.table td {
+  text-align: left;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border, #f0f0f0);
+  white-space: nowrap;
+}
+.table th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted, #6b7280);
+}
+.table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent, #3b6cf6) 6%, transparent);
+}
+
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent, #3b6cf6) 14%, transparent);
+  color: var(--text, inherit);
+}
+
+.muted {
+  color: var(--muted, #6b7280);
+}
+.center {
+  text-align: center;
+}
+
+/* Segmented toggle (chart view switch) */
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--border, #d5d5d5);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.seg__btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted, #6b7280);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.seg__btn--on {
+  color: #fff;
+  background: var(--accent, #3b6cf6);
+}
