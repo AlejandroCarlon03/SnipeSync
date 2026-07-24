@@ -1,0 +1,123 @@
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using Photino.NET;
+using SnipeSync.Dashboard;
+
+// Headless mode (no native window): run the SPA + proxy on a plain HTTP server so it
+// can be opened in any browser. Used for verification where no WebView2 host exists.
+var headless = args.Contains("--headless")
+    || string.Equals(Environment.GetEnvironmentVariable("DASHBOARD_HEADLESS"), "1", StringComparison.Ordinal);
+
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory,
+    WebRootPath = "wwwroot"
+});
+
+builder.Configuration.AddJsonFile(
+    Path.Combine(AppContext.BaseDirectory, "appsettings.json"), optional: true, reloadOnChange: false);
+
+builder.Services.Configure<DashboardOptions>(builder.Configuration.GetSection(DashboardOptions.SectionName));
+builder.Services.AddHttpClient("functions");
+
+// Loopback only; the dashboard is a local single-user tool. Port 0 = OS-assigned
+// (fixed 5177 in headless so the Vite dev proxy has a stable target).
+builder.WebHost.UseUrls(headless ? "http://127.0.0.1:5177" : "http://127.0.0.1:0");
+
+var app = builder.Build();
+
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
+// --- Server-side proxy to the Azure Functions audit endpoints -------------------
+// The SPA calls these same-origin; we forward to the Functions app with the function
+// key attached here, so the key never reaches the browser. Only these two fixed
+// upstream paths are proxied — never an arbitrary caller-supplied path (no open proxy).
+app.MapGet("/api/audit", (HttpContext ctx, IHttpClientFactory f, IOptions<DashboardOptions> o, CancellationToken ct) =>
+    ProxyAsync(ctx, f, o.Value, "/api/audit", ct));
+
+app.MapGet("/api/audit/stats", (HttpContext ctx, IHttpClientFactory f, IOptions<DashboardOptions> o, CancellationToken ct) =>
+    ProxyAsync(ctx, f, o.Value, "/api/audit/stats", ct));
+
+// SPA fallback for client-side routing.
+app.MapFallbackToFile("index.html");
+
+await app.StartAsync();
+
+var boundUrl = app.Services.GetRequiredService<IServer>().Features
+    .Get<IServerAddressesFeature>()?.Addresses.FirstOrDefault() ?? "http://127.0.0.1:5177";
+
+if (headless)
+{
+    Console.WriteLine($"SnipeSync dashboard running headless at {boundUrl} (Ctrl+C to stop).");
+    await app.WaitForShutdownAsync();
+    return;
+}
+
+// Photino must own the main thread on Windows.
+var title = app.Services.GetRequiredService<IOptions<DashboardOptions>>().Value.WindowTitle;
+var window = new PhotinoWindow()
+    .SetTitle(title)
+    .SetUseOsDefaultSize(false)
+    .SetSize(1280, 820)
+    .Center()
+    .SetContextMenuEnabled(false)
+    .Load(new Uri(boundUrl));
+
+window.WaitForClose();
+
+await app.StopAsync();
+
+// --- helpers --------------------------------------------------------------------
+
+// Forwards the incoming GET (query string preserved) to opts.FunctionsBaseUrl + upstreamPath,
+// appending the function key as ?code=, and relays the upstream status/body/content-type.
+static async Task<IResult> ProxyAsync(
+    HttpContext ctx, IHttpClientFactory factory, DashboardOptions opts, string upstreamPath, CancellationToken ct)
+{
+    if (string.IsNullOrWhiteSpace(opts.FunctionsBaseUrl))
+    {
+        return Results.Problem(
+            title: "Dashboard is not configured.",
+            detail: "Set SnipeSync:FunctionsBaseUrl (and FunctionKey) in appsettings.json.",
+            statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+
+    // Re-emit the caller's query (dropping any client-supplied 'code'), then attach our key.
+    var pairs = new List<string>();
+    foreach (var kv in ctx.Request.Query)
+    {
+        if (string.Equals(kv.Key, "code", StringComparison.OrdinalIgnoreCase)) continue;
+        foreach (var v in kv.Value)
+            pairs.Add($"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(v ?? string.Empty)}");
+    }
+    if (!string.IsNullOrWhiteSpace(opts.FunctionKey))
+        pairs.Add($"code={Uri.EscapeDataString(opts.FunctionKey)}");
+
+    var query = pairs.Count > 0 ? "?" + string.Join("&", pairs) : string.Empty;
+    var target = $"{opts.FunctionsBaseUrl.TrimEnd('/')}{upstreamPath}{query}";
+
+    var client = factory.CreateClient("functions");
+    try
+    {
+        using var upstream = await client.GetAsync(target, HttpCompletionOption.ResponseHeadersRead, ct);
+        var body = await upstream.Content.ReadAsStringAsync(ct);
+        var contentType = upstream.Content.Headers.ContentType?.ToString() ?? "application/json";
+        return Results.Content(body, contentType, statusCode: (int)upstream.StatusCode);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(
+            title: "Upstream Functions request failed.",
+            detail: ex.Message,
+            statusCode: StatusCodes.Status502BadGateway);
+    }
+}

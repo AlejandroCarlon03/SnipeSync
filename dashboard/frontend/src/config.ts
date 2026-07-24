@@ -1,18 +1,19 @@
 /**
- * Option A configuration: the desktop host supplies the API base URL and the
- * Azure Functions key at runtime (read from a local config file, e.g. under
- * %APPDATA%) and injects them onto `window` before the bundle loads. Nothing
- * secret is baked into the build output.
+ * Frontend API configuration.
  *
- * Under `npm run dev` neither is set: `baseUrl` falls back to "" so requests hit
- * the Vite dev-server proxy (see vite.config.ts), which forwards to a locally
- * running Functions host — keeping the browser same-origin, with no CORS setup
- * and no key needed for local development.
+ * The dashboard runs inside the .NET/Photino host, which serves this SPA and
+ * exposes same-origin `/api/audit` + `/api/audit/stats` that it proxies to the
+ * Azure Functions app — attaching the function key server-side. So by default the
+ * browser calls its own origin ("") with no key: nothing secret is in the bundle.
+ *
+ * `window.__DASHBOARD_CONFIG__` remains an optional escape hatch (e.g. pointing a
+ * standalone build straight at a Functions app), but the normal path leaves both
+ * fields empty and relies on the host proxy.
  */
 export interface DashboardConfig {
-  /** Absolute origin of the Functions app (e.g. https://dkb-snipeit-sync.azurewebsites.net). "" = use dev proxy. */
+  /** Origin to call. "" = same origin (the host proxy). */
   baseUrl: string;
-  /** Azure Functions key sent as ?code=… since the endpoints are AuthorizationLevel.Function. */
+  /** Optional key for a direct-to-Functions setup; unused with the host proxy. */
   functionKey: string;
 }
 
