@@ -56,7 +56,19 @@ function token(name: string, fallback: string): string {
 
 type Mode = "action" | "month";
 
-export function ActivityChart({ stats }: { stats: AuditStats | null }) {
+/**
+ * `theme` isn't read directly — it's the signal that the CSS custom properties
+ * under it have changed. Recharts needs literal colour values, so `token()`
+ * resolves them during render; without a prop tying this component to the theme,
+ * a toggle would leave the chart painted in the previous palette.
+ */
+export function ActivityChart({
+  stats,
+  theme,
+}: {
+  stats: AuditStats | null;
+  theme: string;
+}) {
   const [mode, setMode] = useState<Mode>("action");
   const [ref, width] = useMeasuredWidth<HTMLDivElement>();
 
@@ -72,9 +84,19 @@ export function ActivityChart({ stats }: { stats: AuditStats | null }) {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [stats, mode]);
 
-  const grid = token("--border", "#e2e2e2");
-  const axis = token("--muted", "#6b7280");
-  const accent = token("--accent", "#3b6cf6");
+  // Re-resolved whenever the theme flips. The muted token is named --ink-muted in
+  // index.css; asking for --muted silently fell through to the hardcoded grey.
+  // `theme` is the cache key, not an input: the values live in CSS custom properties
+  // read off the DOM, so nothing inside this memo can reference it.
+  const { grid, axis, accent } = useMemo(
+    () => ({
+      grid: token("--border", "#e2e2e2"),
+      axis: token("--ink-muted", "#6b7280"),
+      accent: token("--accent", "#3b6cf6"),
+    }),
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [theme],
+  );
 
   const actionHeight = Math.max(160, data.length * (BAR_SIZE + 14) + 40);
 
