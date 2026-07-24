@@ -47,6 +47,21 @@
   cursor: default;
 }
 
+/* Secondary action that sits inside a panel header, next to running text. */
+.btn--ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  color: var(--text, #1f2430);
+  background: transparent;
+  border: 1px solid var(--border, #d5d5d5);
+}
+.btn--ghost:hover:not(:disabled) {
+  border-color: var(--accent, #3b6cf6);
+  color: var(--accent, #3b6cf6);
+}
+
 .tiles {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -80,6 +95,35 @@
   font-size: 14px;
   font-weight: 650;
 }
+.panel__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 13px;
+}
+.panel__note {
+  padding: 12px 16px 0;
+}
+
+/* Right-hand cluster in the top bar: freshness, auto-refresh, theme. */
+.topbar__tools {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+  font-size: 12.5px;
+}
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-muted, #6b7280);
+  cursor: pointer;
+  user-select: none;
+}
+.toggle input {
+  accent-color: var(--accent, #3b6cf6);
+}
 
 .table-wrap {
   overflow-x: auto;
@@ -104,6 +148,66 @@
 }
 .table tbody tr:hover {
   background: color-mix(in srgb, var(--accent, #3b6cf6) 6%, transparent);
+}
+
+/* Sortable header: a button that inherits the th's typography. */
+.th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.th-sort:hover {
+  color: var(--ink-primary, #1f2430);
+}
+.th-sort--on {
+  color: var(--accent, #3b6cf6);
+}
+.th-sort__arrow {
+  font-size: 8px;
+  /* Reserve the arrow's width so headers don't shift as the sort column moves. */
+  min-width: 8px;
+}
+
+.row-click {
+  cursor: pointer;
+}
+.row-caret {
+  display: inline-block;
+  width: 12px;
+  color: var(--ink-muted, #6b7280);
+}
+
+.row-detail > td {
+  padding: 0 16px 14px 28px;
+  white-space: normal;
+  background: color-mix(in srgb, var(--accent, #3b6cf6) 4%, transparent);
+}
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 24px;
+  margin: 0;
+  padding-top: 12px;
+}
+.detail-grid__item dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted, #6b7280);
+}
+.detail-grid__item dd {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  /* Record ids and long details must wrap rather than widen the table. */
+  overflow-wrap: anywhere;
 }
 
 .tag {
@@ -141,4 +245,87 @@
 .seg__btn--on {
   color: #fff;
   background: var(--accent, #3b6cf6);
+}
+
+/* Floating action-reference help, bottom-right of the viewport. */
+.help {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.help__btn {
+  width: 38px;
+  height: 38px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent, #3b6cf6);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 3px 12px rgb(0 0 0 / 25%);
+}
+.help__btn:hover {
+  filter: brightness(1.1);
+}
+
+.help__panel {
+  width: min(420px, calc(100vw - 48px));
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
+  padding: 14px 16px 16px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e2e2e2);
+  border-radius: var(--radius-sm, 8px);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 28%);
+}
+
+.help__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.help__head h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+}
+.help__close {
+  padding: 0 4px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--muted, #6b7280);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.help__list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.help__item dt {
+  margin-bottom: 3px;
+}
+.help__item dd {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted, #6b7280);
+}
+.help__source {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  opacity: 0.75;
 }
