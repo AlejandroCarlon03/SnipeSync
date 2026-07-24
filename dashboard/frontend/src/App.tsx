@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, type AuditRecord, type AuditStats } from "./api";
+import { ActivityChart } from "./components/ActivityChart";
 import { StatTile } from "./components/StatTile";
 import "./dashboard.css";
 
@@ -236,6 +237,8 @@ export function App() {
             />
           ))}
         </section>
+
+        <ActivityChart stats={stats} />
 
         <section className="panel">
           <div className="panel__head">
