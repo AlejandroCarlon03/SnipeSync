@@ -1,0 +1,40 @@
+name: CI
+
+# Build the Azure Functions app on every push to master and on every PR
+# targeting master. Keeps a broken build from ever reaching the default branch.
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+# Cancel an in-progress run if the same branch/PR pushes again.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (.NET 9)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # The project targets net9.0 (see SnipeITSyncFormerEmployees.csproj), so install
+      # the 9.0 SDK explicitly rather than relying on the runner default.
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore
+        run: dotnet restore SnipeITSyncFormerEmployees.sln
+
+      - name: Build
+        run: dotnet build SnipeITSyncFormerEmployees.sln --configuration Release --no-restore
+
+      # No test project exists yet. Once one is added, uncomment the step below and
+      # CI will start gating merges on passing tests as well.
+      # - name: Test
+      #   run: dotnet test SnipeITSyncFormerEmployees.sln --configuration Release --no-build --verbosity normal
