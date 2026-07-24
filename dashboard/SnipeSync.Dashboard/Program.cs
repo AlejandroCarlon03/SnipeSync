@@ -25,6 +25,11 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 builder.Configuration.AddJsonFile(
     Path.Combine(AppContext.BaseDirectory, "appsettings.json"), optional: true, reloadOnChange: false);
 
+// Local, untracked override for secrets (the function key). Gitignored; loaded last so
+// its values win. Create dashboard/SnipeSync.Dashboard/appsettings.Local.json.
+builder.Configuration.AddJsonFile(
+    Path.Combine(AppContext.BaseDirectory, "appsettings.Local.json"), optional: true, reloadOnChange: false);
+
 builder.Services.Configure<DashboardOptions>(builder.Configuration.GetSection(DashboardOptions.SectionName));
 builder.Services.AddHttpClient("functions");
 
