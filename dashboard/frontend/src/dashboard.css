@@ -329,3 +329,131 @@
   font-size: 11px;
   opacity: 0.75;
 }
+
+/* ---------- Workspace layout ---------- */
+/* Filters condense into a pinned toolbar, the stat tiles compress to a thin metric
+   strip, and the record table becomes the primary surface — the chart and the
+   unmatched panel pair off beneath it rather than pushing the table down the page. */
+
+.content--workspace {
+  padding: 18px 24px;
+  gap: 14px;
+}
+
+.content--workspace .toolbar {
+  position: sticky;
+  top: 70px;
+  z-index: 6;
+  padding: 10px 14px;
+  gap: 10px;
+}
+
+.content--workspace .tiles {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.content--workspace .tiles .tile {
+  padding: 11px 14px;
+}
+
+.content--workspace .tiles .tile__value {
+  font-size: 22px;
+  margin: 4px 0 3px;
+}
+
+.content--workspace .tiles .tile__foot {
+  font-size: 11px;
+}
+
+.content--workspace .split-aside {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+@media (max-width: 1080px) {
+  .content--workspace .split-aside {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .content--workspace .tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---------- Semantic tile colour ---------- */
+/* Each stat tile carries the colour of the thing it counts, so the strip encodes state
+   rather than decorating it. Tints are mixed INTO --surface rather than layered over it,
+   which keeps white ink above AA on both themes. Slot classes come from the tile label,
+   so reordering the tiles cannot desynchronise the colours. */
+
+.tile-slot {
+  min-width: 0;
+}
+
+.tile-slot .tile {
+  border-left: 3px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.tile-slot--total-decisions .tile {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  border-left-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+}
+
+.tile-slot--offboarded .tile {
+  background: color-mix(in srgb, var(--status-critical) 12%, var(--surface));
+  border-left-color: color-mix(in srgb, var(--status-critical) 50%, var(--border));
+}
+
+.tile-slot--onboarded .tile {
+  background: color-mix(in srgb, var(--status-good) 12%, var(--surface));
+  border-left-color: color-mix(in srgb, var(--status-good) 50%, var(--border));
+}
+
+/* Amber, not red: an unmatched user is a caution to chase, not a sync failure. */
+.tile-slot--unmatched .tile {
+  background: color-mix(in srgb, var(--status-warning) 12%, var(--surface));
+  border-left-color: color-mix(in srgb, var(--status-warning) 50%, var(--border));
+}
+
+.content--workspace .primary .table tbody td:last-child {
+  color: var(--ink-secondary);
+}
+
+/* ---------- Record pane containment ---------- */
+/* The audit panel is a fixed-height workspace with its own scroll rather than a
+   section that grows to 7,000+px. Note the scroll lives on .table-wrap: app.css
+   also defines .table-scroll with a max-height, but AuditTable renders .table-wrap,
+   so that older rule never applied to this table. */
+
+.panel.primary {
+  display: flex;
+  flex-direction: column;
+  max-height: 620px;
+}
+
+.panel.primary .panel__head {
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--surface);
+}
+
+.panel.primary .table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  /* Bottom fade so a truncated list reads as scrollable rather than finished. */
+  box-shadow: inset 0 -14px 14px -14px rgb(0 0 0 / 65%);
+}
+
+.panel.primary .table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+}

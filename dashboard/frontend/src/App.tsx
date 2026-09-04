@@ -263,8 +263,8 @@ export function App() {
         </div>
       </header>
 
-      <main className="content">
-        <section className="filters">
+      <main className="content content--workspace">
+        <section className="filters toolbar">
           <label>
             From
             <input type="date" value={filters.from} onChange={(e) => set({ from: e.target.value })} />
@@ -312,23 +312,23 @@ export function App() {
 
         <section className="tiles">
           {tiles.map((t) => (
-            <StatTile
+            <div
+              className={`tile-slot tile-slot--${t.label.toLowerCase().replace(/\s+/g, "-")}`}
               key={t.label}
-              label={t.label}
-              value={t.value}
-              previous={t.previous}
-              tone={t.tone}
-              invertDelta={t.invertDelta}
-              hint={t.hint}
-            />
+            >
+              <StatTile
+                label={t.label}
+                value={t.value}
+                previous={t.previous}
+                tone={t.tone}
+                invertDelta={t.invertDelta}
+                hint={t.hint}
+              />
+            </div>
           ))}
         </section>
 
-        <ActivityChart stats={stats} theme={theme} />
-
-        <UnmatchedPanel records={records} />
-
-        <section className="panel">
+        <section className="panel primary">
           <div className="panel__head">
             <h2>Audit records</h2>
             <div className="panel__actions">
@@ -379,6 +379,11 @@ export function App() {
             searching={search.trim().length > 0}
           />
         </section>
+
+        <div className="split-aside">
+          <ActivityChart stats={stats} theme={theme} />
+          <UnmatchedPanel records={records} />
+        </div>
       </main>
 
       <ActionHelp />
