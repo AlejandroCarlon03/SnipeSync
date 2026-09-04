@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace SnipeITSyncFormerEmployees;
 
 /// <summary>
@@ -53,6 +55,35 @@ public class SyncOptions
     public bool SyncUserFields => DepartmentFieldColumn is not null
                                   || ManagerFieldColumn is not null
                                   || OfficeFieldColumn is not null;
+
+    // --- Feature 10: Entra license → Snipe-IT seat checkout ---------------------
+    /// <summary>
+    /// Gate for LicenseSyncFunction. Off by default so the timer stays dark until the SKU map is
+    /// validated in dry-run against a real user (e.g. Brett Nelson).
+    /// </summary>
+    public bool LicenseSyncEnabled { get; }
+
+    /// <summary>
+    /// M365 SKU part number → Snipe-IT license name (e.g. {"SPE_E3":"Microsoft 365 E3"}). From
+    /// LICENSE_SKU_MAP env JSON. SKUs with no entry are skipped and reported.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> LicenseSkuMap { get; }
+
+    /// <summary>
+    /// When true (default), a mapped license with no matching Snipe-IT record is created automatically
+    /// (sized to the tenant's owned seats) before checkout, instead of being skipped. Needed because
+    /// Snipe-IT may start with zero license records.
+    /// </summary>
+    public bool LicenseAutoCreate { get; }
+
+    /// <summary>Snipe-IT category id to file auto-created licenses under (LICENSE_CATEGORY_ID). Optional.</summary>
+    public int? LicenseCategoryId { get; }
+
+    /// <summary>
+    /// Snipe-IT license name → monthly seat cost, from LICENSE_COST_MAP env JSON. Optional: used only
+    /// by the savings report to price reclaimed seats; absent means the report shows counts only.
+    /// </summary>
+    public IReadOnlyDictionary<string, decimal> LicenseCostMap { get; }
 
     // --- Feature 6: dry-run -----------------------------------------------------
     /// <summary>When true, all mutating Snipe-IT calls are skipped and only logged.</summary>
@@ -110,6 +141,12 @@ public class SyncOptions
         ManagerFieldColumn = Get("SNIPEIT_CF_MANAGER");
         OfficeFieldColumn = Get("SNIPEIT_CF_OFFICE");
 
+        LicenseSyncEnabled = GetBool("LICENSE_SYNC_ENABLED", defaultValue: false);
+        LicenseSkuMap = GetJsonMap<string>("LICENSE_SKU_MAP");
+        LicenseCostMap = GetJsonMap<decimal>("LICENSE_COST_MAP");
+        LicenseAutoCreate = GetBool("LICENSE_AUTO_CREATE", defaultValue: true);
+        LicenseCategoryId = GetInt("LICENSE_CATEGORY_ID");
+
         DryRun = GetBool("DRY_RUN", defaultValue: false);
 
         EmployeeSecurityGroupId = Get("EMPLOYEE_SECURITY_GROUP_ID");
@@ -147,5 +184,27 @@ public class SyncOptions
     {
         var raw = Get(name);
         return int.TryParse(raw, out var value) ? value : null;
+    }
+
+    /// <summary>
+    /// Parses an env var holding a JSON object of string→<typeparamref name="TValue"/> into a
+    /// case-insensitive map. Absent or malformed JSON yields an empty map (logged by the caller via
+    /// an empty result) so a bad setting can never crash startup.
+    /// </summary>
+    private static IReadOnlyDictionary<string, TValue> GetJsonMap<TValue>(string name)
+    {
+        var raw = Get(name);
+        if (raw is null) return new Dictionary<string, TValue>();
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<Dictionary<string, TValue>>(raw);
+            return parsed is null
+                ? new Dictionary<string, TValue>()
+                : new Dictionary<string, TValue>(parsed, StringComparer.OrdinalIgnoreCase);
+        }
+        catch (JsonException)
+        {
+            return new Dictionary<string, TValue>();
+        }
     }
 }

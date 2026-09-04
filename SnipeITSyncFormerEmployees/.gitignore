@@ -4,6 +4,12 @@
 # Azure Functions localsettings file
 local.settings.json
 
+# Azurite local storage emulator artifacts (created when running functions locally)
+__azurite_db_*.json
+__blobstorage__/
+__queuestorage__/
+AzuriteConfig
+
 # User-specific files
 *.suo
 *.user

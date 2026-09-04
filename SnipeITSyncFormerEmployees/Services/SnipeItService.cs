@@ -365,6 +365,131 @@ public class SnipeItService : ISnipeItService
         return false;
     }
 
+    public async Task<SnipeItLicenseRef?> FindLicenseByName(string licenseName)
+    {
+        var uri = $"{BaseUrl}/api/v1/licenses?search={Uri.EscapeDataString(licenseName)}&limit=10";
+        try
+        {
+            var response = await _httpClient.GetFromJsonAsync<SnipeItLicensesResponse>(uri);
+            var matches = (response?.Rows ?? [])
+                .Where(x => string.Equals(x.Name, licenseName, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (matches.Count > 1)
+            {
+                // Two licenses share a name — checking out either could bill the wrong SKU. Don't guess.
+                _logger.LogWarning("Ambiguous Snipe-IT license name '{Name}': {Count} licenses share it; not guessing.",
+                    licenseName, matches.Count);
+                return null;
+            }
+
+            if (matches.Count == 0)
+            {
+                _logger.LogWarning("No Snipe-IT license named '{Name}' found.", licenseName);
+                return null;
+            }
+
+            return matches[0];
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning("Failed to look up Snipe-IT license '{Name}': {Error}", licenseName, e.Message);
+            return null;
+        }
+    }
+
+    public async Task<int?> GetFirstFreeSeatId(int licenseId)
+    {
+        var uri = $"{BaseUrl}/api/v1/licenses/{licenseId}/seats?limit=500";
+        try
+        {
+            var response = await _httpClient.GetFromJsonAsync<SnipeItLicenseSeatsResponse>(uri);
+            // A seat with no assignee is available for checkout.
+            var free = (response?.Rows ?? []).FirstOrDefault(s => s.AssignedTo is null);
+            return free?.Id;
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning("Failed to fetch seats for license {LicenseId}: {Error}", licenseId, e.Message);
+            return null;
+        }
+    }
+
+    public async Task<SnipeItLicenseRef?> CreateLicense(string name, int seats, int? categoryId, string? note)
+    {
+        if (_options.DryRun)
+        {
+            _logger.LogInformation("[DRY-RUN] Would create Snipe-IT license '{Name}' with {Seats} seat(s).", name, seats);
+            // Synthetic ref (Id -1) so the caller can log an intended checkout without a real record existing.
+            return new SnipeItLicenseRef(-1, name, seats);
+        }
+
+        var uri = $"{BaseUrl}/api/v1/licenses";
+        var body = new Dictionary<string, object?> { ["name"] = name, ["seats"] = seats };
+        if (categoryId is not null) body["category_id"] = categoryId;
+        if (note is not null) body["notes"] = note;
+
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync(uri, body);
+            var result = await response.Content.ReadFromJsonAsync<SnipeItCreateLicenseResponse>();
+            if (result is not null
+                && response.IsSuccessStatusCode
+                && result.Status.Equals("success", StringComparison.OrdinalIgnoreCase)
+                && result.Payload is not null)
+            {
+                _logger.LogInformation("[OK] Created Snipe-IT license '{Name}' (ID: {Id}, {Seats} seat(s)).",
+                    name, result.Payload.Id, seats);
+                return result.Payload;
+            }
+
+            _logger.LogWarning("[WARNING] Failed to create license '{Name}': {Messages}", name, result?.Messages);
+            return null;
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning("Failed to create license '{Name}': {Error}", name, e.Message);
+        }
+
+        return null;
+    }
+
+    public async Task<bool> CheckoutLicenseSeat(int licenseId, int seatId, int userId, string licenseLabel, string? note)
+    {
+        if (_options.DryRun)
+        {
+            _logger.LogInformation("[DRY-RUN] Would check out {License} (seat #{SeatId}) to user {UserId}",
+                licenseLabel, seatId, userId);
+            return true;
+        }
+
+        // Symmetric with CheckinLicenseSeat, which clears assignment via assigned_to=null on the same route.
+        var uri = $"{BaseUrl}/api/v1/licenses/{licenseId}/seats/{seatId}";
+        try
+        {
+            var response = await _httpClient.PatchAsJsonAsync(uri, new { assigned_to = userId, notes = note });
+            var status = await response.Content.ReadFromJsonAsync<SnipeItStatus>();
+            if (status is not null
+                && response.IsSuccessStatusCode
+                && status.Status.Equals("success", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("[OK] Checked out {License} (seat #{SeatId}) to user {UserId}.",
+                    licenseLabel, seatId, userId);
+                return true;
+            }
+
+            _logger.LogWarning("[WARNING] Failed to check out {License} (seat #{SeatId}) to user {UserId}: {Messages}",
+                licenseLabel, seatId, userId, status?.Messages);
+            return false;
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning("Failed to check out {License} (seat #{SeatId}): {Error}", licenseLabel, seatId, e.Message);
+        }
+
+        return false;
+    }
+
     public async Task<List<SnipeItAccessory>> GetUserAccessories(int userId)
     {
         var uri = $"{BaseUrl}/api/v1/users/{userId}/accessories?limit=500";

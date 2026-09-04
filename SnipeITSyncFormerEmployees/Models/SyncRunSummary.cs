@@ -16,6 +16,8 @@ public class SyncRunSummary(string functionName)
     public int Reactivated { get; set; }
     public int AssetsCheckedIn { get; set; }
     public int LicensesReclaimed { get; set; }
+    public int LicensesCreated { get; set; }
+    public int LicensesCheckedOut { get; set; }
     public int AccessoriesReclaimed { get; set; }
     public int AlreadyCurrent { get; set; }
     public int Failed { get; set; }
@@ -26,11 +28,20 @@ public class SyncRunSummary(string functionName)
     /// <summary>Assets that could not be auto-checked-in and need manual reclaim.</summary>
     public List<string> AssetsNeedingAttention { get; } = [];
 
+    /// <summary>Entra SKU part numbers with no LICENSE_SKU_MAP entry (license sync).</summary>
+    public List<string> UnmappedSkus { get; } = [];
+
+    /// <summary>"user: license" pairs that couldn't be checked out because no free seat remained.</summary>
+    public List<string> SeatsExhausted { get; } = [];
+
     public int Skipped => Unmatched.Count;
     public bool HasActivity =>
         Offboarded + Onboarded + Reactivated + AssetsCheckedIn
-        + LicensesReclaimed + AccessoriesReclaimed + Failed + Skipped > 0;
+        + LicensesReclaimed + LicensesCheckedOut + AccessoriesReclaimed + Failed + Skipped > 0;
 }
+
+/// <summary>One tenant subscribed SKU: its id/part number and how many seats are owned (enabled).</summary>
+public record EntraSubscribedSku(string SkuId, string PartNumber, int EnabledUnits);
 
 /// <summary>An Entra user we could not match to Snipe-IT, queued for a second-pass reconciliation.</summary>
 public record UnmatchedUser(
