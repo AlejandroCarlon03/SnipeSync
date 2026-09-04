@@ -1,0 +1,7 @@
+# Local agent tooling — machine-local, not part of the application.
+# The impeccable skill and Claude Code settings are installed per-developer
+# (npx impeccable install --providers=.claude), so they are deliberately not
+# vendored into the repo.
+.claude/
+.impeccable/
+dashboard/frontend/.impeccable/
