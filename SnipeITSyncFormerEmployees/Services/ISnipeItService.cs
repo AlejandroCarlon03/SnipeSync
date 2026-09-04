@@ -29,6 +29,25 @@ public interface ISnipeItService
     /// <summary>Checks a license seat back in (frees the paid seat).</summary>
     Task<bool> CheckinLicenseSeat(SnipeItLicenseSeat seat, string? note);
 
+    /// <summary>
+    /// Resolves an existing Snipe-IT license by exact (case-insensitive) name. Returns null when
+    /// there is no match or the name is ambiguous (multiple licenses share it) — the checkout side
+    /// never guesses, mirroring the ambiguity guard in <see cref="FindSnipeItUser"/>.
+    /// </summary>
+    Task<SnipeItLicenseRef?> FindLicenseByName(string licenseName);
+
+    /// <summary>Returns the id of the first unassigned seat on a license, or null when none is free.</summary>
+    Task<int?> GetFirstFreeSeatId(int licenseId);
+
+    /// <summary>
+    /// Creates a new Snipe-IT license record and returns it (id + seat count). Used when a mapped
+    /// Entra SKU has no matching license yet, so the checkout side has a seat to hand out.
+    /// </summary>
+    Task<SnipeItLicenseRef?> CreateLicense(string name, int seats, int? categoryId, string? note);
+
+    /// <summary>Checks out a free license seat to a user (inverse of <see cref="CheckinLicenseSeat"/>).</summary>
+    Task<bool> CheckoutLicenseSeat(int licenseId, int seatId, int userId, string licenseLabel, string? note);
+
     /// <summary>Returns accessories currently checked out to a user.</summary>
     Task<List<SnipeItAccessory>> GetUserAccessories(int userId);
 

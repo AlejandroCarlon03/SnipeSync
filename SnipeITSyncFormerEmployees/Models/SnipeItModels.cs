@@ -49,12 +49,29 @@ public record SnipeItAssetsResponse(int Total, List<SnipeItAsset> Rows);
 public record SnipeItUserLicense(int Id, string? Name);
 public record SnipeItUserLicensesResponse(int Total, List<SnipeItUserLicense> Rows);
 
-// GET /api/v1/licenses/{id}/seats
+// GET /api/v1/licenses/{id}/seats — the assignee comes back under "assigned_user" (NOT "assigned_to",
+// which is what the write/checkout side uses). Reading the wrong key makes every seat look unassigned,
+// so GetFirstFreeSeatId hands out the same seat repeatedly and GetUserLicenseSeats finds nothing.
 public record SnipeItLicenseSeatRaw(
     int Id,
-    [property: JsonPropertyName("assigned_to")] SnipeItNamedRef? AssignedTo
+    [property: JsonPropertyName("assigned_user")] SnipeItNamedRef? AssignedTo
 );
 public record SnipeItLicenseSeatsResponse(int Total, List<SnipeItLicenseSeatRaw> Rows);
+
+// GET /api/v1/licenses?search=... — used to resolve an Entra SKU's target license (checkout side).
+public record SnipeItLicenseRef(
+    int Id,
+    string? Name,
+    [property: JsonPropertyName("free_seats_count")] int FreeSeatsCount
+);
+public record SnipeItLicensesResponse(int Total, List<SnipeItLicenseRef> Rows);
+
+// POST /api/v1/licenses returns { status, messages, payload:{ the created license } }.
+public record SnipeItCreateLicenseResponse(
+    string Status,
+    SnipeItLicenseRef? Payload,
+    [property: JsonPropertyName("messages")] object? Messages = null
+);
 
 /// <summary>A resolved seat assigned to a specific user, ready to check in.</summary>
 public record SnipeItLicenseSeat(int SeatId, int LicenseId, string? LicenseName)

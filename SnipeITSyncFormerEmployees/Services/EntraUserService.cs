@@ -19,7 +19,7 @@ public class EntraUserService(
     [
         "id", "displayName", "accountEnabled", "mail",
         "givenName", "surname", "mailNickname", "jobTitle",
-        "department", "officeLocation"
+        "department", "officeLocation", "assignedLicenses"
     ];
 
     private static readonly string[] ExpandManager = ["manager($select=displayName,mail)"];
@@ -121,6 +121,38 @@ public class EntraUserService(
             return null;
         }
     }
+
+    /// <summary>
+    /// Reads the tenant's subscribed SKUs (GET /subscribedSkus): the skuId (GUID) → part number
+    /// mapping AND each SKU's owned-seat total (prepaidUnits.enabled). Called once per license-sync
+    /// run — a user's assignedLicenses carry only opaque skuId GUIDs, so this is how those become the
+    /// part numbers LICENSE_SKU_MAP is keyed on, and the seat total is what an auto-created Snipe-IT
+    /// license is sized to. Empty on failure so the caller degrades to "nothing to sync".
+    /// </summary>
+    public async Task<IReadOnlyList<EntraSubscribedSku>> GetSubscribedSkusAsync()
+    {
+        var result = new List<EntraSubscribedSku>();
+        try
+        {
+            var skus = await graphServiceClient.SubscribedSkus.GetAsync();
+            foreach (var sku in skus?.Value ?? [])
+            {
+                if (sku.SkuId is { } id && !string.IsNullOrWhiteSpace(sku.SkuPartNumber))
+                    result.Add(new EntraSubscribedSku(id.ToString(), sku.SkuPartNumber!, sku.PrepaidUnits?.Enabled ?? 0));
+            }
+        }
+        catch (Exception e)
+        {
+            logger.LogWarning("Failed to load subscribedSkus for license sync: {Error}", e.Message);
+        }
+        return result;
+    }
+
+    /// <summary>The skuId GUIDs (as strings) currently assigned to a user, from their assignedLicenses.</summary>
+    public static IEnumerable<string> GetAssignedSkuIds(User user) =>
+        (user.AssignedLicenses ?? [])
+        .Where(l => l.SkuId is not null)
+        .Select(l => l.SkuId!.Value.ToString());
 
     /// <summary>Best-effort display name of the user's manager from an expanded query.</summary>
     public static string? GetManagerName(User user)
