@@ -36,9 +36,9 @@ public class AuditQueryFunction(ILogger<AuditQueryFunction> logger, IAuditReader
         var function = Trimmed(q["function"]);
         var limit = ParseLimit(q["limit"]);
 
-        if (!TryParseDate(q["from"], out var from))
+        if (!TryParseDate(q["from"], endOfDayIfDateOnly: false, out var from))
             return await Text(req, HttpStatusCode.BadRequest, "Invalid 'from' date; use ISO 8601 (e.g. 2026-07-01).");
-        if (!TryParseDate(q["to"], out var to))
+        if (!TryParseDate(q["to"], endOfDayIfDateOnly: true, out var to))
             return await Text(req, HttpStatusCode.BadRequest, "Invalid 'to' date; use ISO 8601 (e.g. 2026-07-31).");
 
         try
@@ -64,12 +64,17 @@ public class AuditQueryFunction(ILogger<AuditQueryFunction> logger, IAuditReader
     private static int ParseLimit(string? raw) =>
         int.TryParse(raw, out var value) ? Math.Clamp(value, 1, MaxLimit) : DefaultLimit;
 
-    private static bool TryParseDate(string? raw, out DateTimeOffset? value)
+    private static bool TryParseDate(string? raw, bool endOfDayIfDateOnly, out DateTimeOffset? value)
     {
         if (string.IsNullOrWhiteSpace(raw)) { value = null; return true; }
-        if (DateTimeOffset.TryParse(raw, out var parsed)) { value = parsed; return true; }
-        value = null;
-        return false;
+        if (!DateTimeOffset.TryParse(raw, out var parsed)) { value = null; return false; }
+        // A date-only "to" bound must include the whole day: "to=2026-09-04" parses to midnight, which
+        // would exclude every row stamped later that day. Extend it to the last tick of the day so the
+        // range stays inclusive. "from" keeps start-of-day, so the day-only case covers the full span.
+        if (endOfDayIfDateOnly && !raw.Contains('T') && !raw.Contains(':'))
+            parsed = new DateTimeOffset(parsed.Date, parsed.Offset).AddDays(1).AddTicks(-1);
+        value = parsed;
+        return true;
     }
 
     private static async Task<HttpResponseData> Text(HttpRequestData req, HttpStatusCode status, string message)
