@@ -112,8 +112,17 @@ public class SyncOptions
     public string CosmosDatabaseName { get; }
     public string CosmosAuditContainer { get; }
 
-    /// <summary>True when a Cosmos connection is configured — selects the Cosmos audit backend.</summary>
-    public bool UseCosmosAudit => CosmosConnectionString is not null;
+    /// <summary>
+    /// Which audit backend to use, "cosmos" or "table". Set explicitly via AUDIT_BACKEND to force one
+    /// (e.g. AUDIT_BACKEND=table to run fully local on Azurite while a Cosmos connection string is still
+    /// present but its subscription is down). When unset it is inferred: cosmos if a Cosmos connection
+    /// string is configured, else table. Switching Azure back on is then just removing AUDIT_BACKEND
+    /// (or setting it to "cosmos") — no code change.
+    /// </summary>
+    public string AuditBackend { get; }
+
+    /// <summary>True when the Cosmos audit backend is selected — drives both the writer and reader DI.</summary>
+    public bool UseCosmosAudit => string.Equals(AuditBackend, "cosmos", StringComparison.OrdinalIgnoreCase);
 
     // --- Feature 8: reconciliation / dead-letter queue --------------------------
     /// <summary>
@@ -162,6 +171,14 @@ public class SyncOptions
         CosmosConnectionString = Get("COSMOS_CONNECTION_STRING");
         CosmosDatabaseName = Get("COSMOS_DATABASE_NAME") ?? "SnipeSync";
         CosmosAuditContainer = Get("COSMOS_AUDIT_CONTAINER") ?? "AuditLog";
+
+        // Explicit override wins; otherwise infer from whether a Cosmos connection is configured.
+        AuditBackend = Get("AUDIT_BACKEND")?.ToLowerInvariant() switch
+        {
+            "table" => "table",
+            "cosmos" => "cosmos",
+            _ => CosmosConnectionString is not null ? "cosmos" : "table"
+        };
 
         ReconciliationQueueConnectionString = webJobsStorage;
         ReconciliationQueueName = Get("RECONCILIATION_QUEUE_NAME") ?? "sync-unmatched";
