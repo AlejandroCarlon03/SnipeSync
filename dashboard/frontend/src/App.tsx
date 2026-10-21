@@ -5,6 +5,7 @@ import { ActionHelp } from "./components/ActionHelp";
 import { ActivityChart } from "./components/ActivityChart";
 import { AuditTable } from "./components/AuditTable";
 import { StatTile } from "./components/StatTile";
+import { SyncButton } from "./components/SyncButton";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { UnmatchedPanel } from "./components/UnmatchedPanel";
 import { relativeFromNow, toUtcDate } from "./format";
@@ -17,12 +18,13 @@ const FUNCTIONS = [
   "FormerEmployeeSync",
   "OnboardEmployeeSync",
   "ReconciliationQueueProcessor",
+  "LicenseSync",
 ];
 
 const TABLE_LIMIT = 500;
 const DAY_MS = 86_400_000;
 
-/** The syncs run twice a day, so a slow poll is plenty — this isn't a live feed. */
+/** Syncs are occasional (button or nightly task), so a slow poll is plenty — this isn't a live feed. */
 const REFRESH_MS = 60_000;
 /** How often the "updated Xs ago" labels re-render. */
 const CLOCK_MS = 15_000;
@@ -242,8 +244,8 @@ export function App() {
       <header className="topbar">
         <div className="topbar__inner">
           <div className="brand">
-            <span className="brand__mark">S</span>
-            <h1 className="brand__title">SnipeSync Audit Dashboard</h1>
+            <img className="brand__logo" src="./favicon.svg" alt="" width={34} height={34} />
+            <h1 className="brand__title">SnipeSync</h1>
           </div>
 
           <div className="topbar__tools">
@@ -259,6 +261,7 @@ export function App() {
               Auto-refresh
             </label>
             <ThemeToggle theme={theme} onChange={setTheme} />
+            <SyncButton onFinished={() => void load(true)} />
           </div>
         </div>
       </header>

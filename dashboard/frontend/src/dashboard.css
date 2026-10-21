@@ -457,3 +457,190 @@
   z-index: 2;
   background: var(--surface);
 }
+
+/* ---------- Brand + manual sync ---------- */
+
+.brand__logo {
+  display: block;
+  flex-shrink: 0;
+}
+
+.sync {
+  position: relative;
+}
+
+.sync__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sync__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  width: min(400px, calc(100vw - 32px));
+  max-height: min(78vh, 640px);
+  overflow-y: auto;
+  padding: 14px 16px 16px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: var(--shadow-pop);
+}
+
+.sync__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sync__step {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.sync__dot {
+  width: 9px;
+  height: 9px;
+  margin-top: 4px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1.5px solid var(--border-strong);
+  background: transparent;
+}
+
+.sync__step--running .sync__dot {
+  border-color: var(--accent);
+  background: var(--accent);
+  animation: sync-pulse 1.2s ease-in-out infinite;
+}
+
+.sync__step--done .sync__dot {
+  border-color: var(--status-good);
+  background: var(--status-good);
+}
+
+.sync__step--failed .sync__dot {
+  border-color: var(--status-critical);
+  background: var(--status-critical);
+}
+
+.sync__step--skipped .sync__dot {
+  border-style: dashed;
+}
+
+@keyframes sync-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync__step--running .sync__dot {
+    animation: none;
+  }
+}
+
+.sync__step-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sync__step-label {
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.sync__step--pending .sync__step-label,
+.sync__step--skipped .sync__step-label {
+  color: var(--ink-secondary);
+}
+
+.sync__step-meta {
+  font-size: 12px;
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.sync__step--failed .sync__step-meta {
+  color: var(--status-critical);
+}
+
+.sync__outcome {
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  font-weight: 550;
+}
+
+.sync__outcome--succeeded {
+  color: var(--status-good-text, var(--status-good));
+}
+
+.sync__outcome--completedWithErrors {
+  color: var(--ink-primary);
+}
+
+.sync__outcome--failed {
+  color: var(--status-critical);
+}
+
+.sync__log-toggle {
+  margin-top: 8px;
+  padding: 0;
+  font-size: 12px;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.sync__log {
+  margin: 6px 0 0;
+  max-height: 220px;
+  overflow: auto;
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  background: var(--page, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.sync__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.sync__setup p {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.sync__setup code {
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+.sync__error {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--status-critical);
+  overflow-wrap: anywhere;
+}

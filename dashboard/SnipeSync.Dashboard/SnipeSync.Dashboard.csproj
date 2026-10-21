@@ -2,6 +2,12 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <!-- Release (what the installer ships) has no console window: the dashboard opens in Edge, and the
+         nightly sync runs from Task Scheduler and writes last-sync.log instead. Debug keeps the console. -->
+    <OutputType Condition="'$(Configuration)' == 'Release'">WinExe</OutputType>
+    <ApplicationIcon>snipesync.ico</ApplicationIcon>
+    <Product>SnipeSync</Product>
+    <Version>1.0.0</Version>
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -15,6 +21,10 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Photino.NET" Version="4.0.16" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\SnipeSync.Core\SnipeSync.Core.csproj" />
   </ItemGroup>
 
   <!-- Build the React SPA (Vite outputs to this project's ./wwwroot) before the .NET build. -->
@@ -49,11 +59,15 @@
   </Target>
 
   <ItemGroup>
+    <!-- Also loaded at runtime as the Photino window's icon. -->
+    <None Update="snipesync.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <!-- Untracked local secrets override; copied to output only when present. -->
-    <None Include="appsettings.Local.json" Condition="Exists('appsettings.Local.json')">
+    <!-- Template copied to %LOCALAPPDATA%\SnipeSync\settings.json on first run (see LocalSettings). -->
+    <None Update="settings.example.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

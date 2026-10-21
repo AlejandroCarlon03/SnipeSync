@@ -9,3 +9,7 @@ dashboard/frontend/.impeccable/
 # Build output for every project in the repo.
 bin/
 obj/
+
+# Installer build output (installeruild.cmd).
+artifacts/
+installer/output/
