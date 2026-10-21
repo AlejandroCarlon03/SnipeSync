@@ -1,6 +1,7 @@
-import { Fragment, useState } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
 import type { AuditRecord } from "../api";
 import { formatUtc, relativeFromNow } from "../format";
+import { actionColor, isUnmatched, lineForFunction } from "../lines";
 import { SORTABLE_COLUMNS, type Sort, type SortKey } from "../lib/tableView";
 
 interface AuditTableProps {
@@ -11,7 +12,14 @@ interface AuditTableProps {
   loading: boolean;
   /** True when a search is active but matched nothing, for a better empty state. */
   searching: boolean;
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  /** Clears search and filters from the empty state. */
+  onReset: () => void;
+  now: number;
 }
+
+const SKELETON_ROWS = 7;
 
 export function AuditTable({
   records,
@@ -19,9 +27,11 @@ export function AuditTable({
   onSortChange,
   loading,
   searching,
+  selectedId,
+  onSelect,
+  onReset,
+  now,
 }: AuditTableProps) {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
   const toggleSort = (key: SortKey) => {
     // First click on a new column sorts descending — for timestamps and counts
     // "most recent / biggest first" is nearly always what's wanted.
@@ -32,98 +42,141 @@ export function AuditTable({
     );
   };
 
+  // Rows are a roving list: Enter/Space opens, arrows walk, Escape closes the inspector.
+  const onRowKey = (e: KeyboardEvent<HTMLTableRowElement>, id: string) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onSelect(selectedId === id ? null : id);
+    } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const sibling =
+        e.key === "ArrowDown"
+          ? e.currentTarget.nextElementSibling
+          : e.currentTarget.previousElementSibling;
+      if (sibling instanceof HTMLElement) {
+        sibling.focus();
+        // Follow focus only when the inspector is already open, so arrowing isn't noisy.
+        if (selectedId && sibling.dataset.id) onSelect(sibling.dataset.id);
+      }
+    } else if (e.key === "Escape" && selectedId) {
+      onSelect(null);
+    }
+  };
+
+  const showSkeleton = loading && records.length === 0;
+
   return (
     <div className="table-wrap">
       <table className="table">
         <thead>
           <tr>
-            {SORTABLE_COLUMNS.map((c) => (
-              <th key={c.key}>
-                <button
-                  className={`th-sort ${sort.key === c.key ? "th-sort--on" : ""}`}
-                  onClick={() => toggleSort(c.key)}
-                  aria-label={`Sort by ${c.label}`}
+            {SORTABLE_COLUMNS.map((c) => {
+              const on = sort.key === c.key;
+              return (
+                <th
+                  key={c.key}
+                  aria-sort={on ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
                 >
-                  {c.label}
-                  <span className="th-sort__arrow" aria-hidden="true">
-                    {sort.key === c.key ? (sort.dir === "asc" ? "▲" : "▼") : ""}
-                  </span>
-                </button>
-              </th>
-            ))}
+                  <button
+                    className={`th-sort ${on ? "th-sort--on" : ""}`}
+                    onClick={() => toggleSort(c.key)}
+                  >
+                    {c.label}
+                    <svg
+                      className={`th-sort__arrow ${on && sort.dir === "asc" ? "th-sort__arrow--up" : ""}`}
+                      viewBox="0 0 10 10"
+                      width="9"
+                      height="9"
+                      aria-hidden="true"
+                    >
+                      <path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </th>
+              );
+            })}
             <th>Detail</th>
-            <th>Run</th>
           </tr>
         </thead>
         <tbody>
-          {records.map((r) => {
-            const open = expandedId === r.id;
-            return (
-              <Fragment key={r.id}>
-                <tr
-                  className="row-click"
-                  onClick={() => setExpandedId(open ? null : r.id)}
-                  aria-expanded={open}
-                >
-                  <td title={formatUtc(r.timestampUtc)}>
-                    <span className="row-caret" aria-hidden="true">
-                      {open ? "▾" : "▸"}
-                    </span>
-                    {relativeFromNow(r.timestampUtc)}
+          {showSkeleton &&
+            Array.from({ length: SKELETON_ROWS }, (_, i) => (
+              <tr key={`sk-${i}`} className="row-skeleton" aria-hidden="true">
+                {[56, 70, 90, 110, 160].map((w, j) => (
+                  <td key={j}>
+                    <span className="skeleton" style={{ width: w }} />
                   </td>
-                  <td>{r.function}</td>
-                  <td>{r.user}</td>
-                  <td>
-                    <span className="tag">{r.action}</span>
-                  </td>
-                  <td className="muted">{r.detail ?? r.newValue ?? ""}</td>
-                  <td>{r.dryRun ? "dry-run" : "live"}</td>
-                </tr>
+                ))}
+              </tr>
+            ))}
 
-                {open && (
-                  <tr className="row-detail">
-                    <td colSpan={6}>
-                      {/* oldValue is not shown in the collapsed row at all — on a
-                          MarkedFormerEmployee row this is the previous job title. */}
-                      <dl className="detail-grid">
-                        <Field label="Time (UTC)" value={formatUtc(r.timestampUtc)} />
-                        <Field label="Function" value={r.function} />
-                        <Field label="User" value={r.user} />
-                        <Field label="Action" value={r.action} />
-                        <Field label="Old value" value={r.oldValue} />
-                        <Field label="New value" value={r.newValue} />
-                        <Field label="Detail" value={r.detail} />
-                        <Field label="Run" value={r.dryRun ? "dry-run" : "live"} />
-                        <Field label="Month partition" value={r.ym} />
-                        <Field label="Record id" value={r.id} />
-                      </dl>
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
+          {records.map((r) => {
+            const selected = selectedId === r.id;
+            const line = lineForFunction(r.function);
+            const unmatched = isUnmatched(r.action);
+            return (
+              <tr
+                key={r.id}
+                data-id={r.id}
+                className={`row ${selected ? "row--selected" : ""} ${unmatched ? "row--anomaly" : ""}`}
+                tabIndex={0}
+                aria-selected={selected}
+                aria-label={`${r.action} for ${r.user}. ${selected ? "Showing details" : "Open details"}`}
+                onClick={() => onSelect(selected ? null : r.id)}
+                onKeyDown={(e) => onRowKey(e, r.id)}
+              >
+                <td className="cell-time" title={`${formatUtc(r.timestampUtc)} UTC`}>
+                  {relativeFromNow(r.timestampUtc, now)}
+                  {/* Live is the default, so only the exception is marked. */}
+                  {r.dryRun && <span className="chip chip--dry">dry run</span>}
+                </td>
+                <td title={r.function}>
+                  <span
+                    className="line-badge"
+                    style={{ "--tone": line?.color ?? "var(--ink-muted)" } as CSSProperties}
+                  >
+                    <span className="line-badge__name">{line?.name ?? r.function}</span>
+                  </span>
+                </td>
+                <td className="cell-user">{r.user}</td>
+                <td>
+                  <span
+                    className={`action ${unmatched ? "action--anomaly" : ""}`}
+                    style={{ "--tone": actionColor(r.action, r.function) } as CSSProperties}
+                  >
+                    {r.action}
+                  </span>
+                </td>
+                <td className="cell-detail">{r.detail ?? r.newValue ?? ""}</td>
+              </tr>
             );
           })}
 
           {records.length === 0 && !loading && (
-            <tr>
-              <td colSpan={6} className="muted center">
-                {searching
-                  ? "No records match that search."
-                  : "No records for these filters."}
+            <tr className="row-empty">
+              <td colSpan={5}>
+                <div className="empty">
+                  <svg viewBox="0 0 64 20" width="64" height="20" aria-hidden="true">
+                    <path d="M2 10h22M40 10h22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <circle cx="32" cy="10" r="6" fill="none" stroke="currentColor" strokeWidth="2" />
+                  </svg>
+                  <p className="empty__title">
+                    {searching ? "No records match that search." : "No records for these filters."}
+                  </p>
+                  <p className="empty__body">
+                    {searching
+                      ? "Search looks at user, action, function, detail, and old and new values."
+                      : "Nothing was audited in this range. Widen the dates or clear the filters."}
+                  </p>
+                  <button className="btn btn--ghost" onClick={onReset}>
+                    {searching ? "Clear search" : "Reset filters"}
+                  </button>
+                </div>
               </td>
             </tr>
           )}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string | null | undefined }) {
-  return (
-    <div className="detail-grid__item">
-      <dt>{label}</dt>
-      <dd className={value ? "" : "muted"}>{value || "—"}</dd>
     </div>
   );
 }

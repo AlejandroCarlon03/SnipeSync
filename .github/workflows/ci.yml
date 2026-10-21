@@ -1,7 +1,7 @@
 name: CI
 
-# Build the Azure Functions app on every push to master and on every PR
-# targeting master. Keeps a broken build from ever reaching the default branch.
+# Build the sync engine, both hosts and the dashboard SPA on every push to master and on
+# every PR targeting master. Keeps a broken build from ever reaching the default branch.
 on:
   push:
     branches: [ master ]
@@ -31,8 +31,10 @@ jobs:
       - name: Restore
         run: dotnet restore SnipeITSyncFormerEmployees.sln
 
+      # The solution includes the dashboard host; its SPA build needs Node and is covered by
+      # the build-dashboard job, so skip it here.
       - name: Build
-        run: dotnet build SnipeITSyncFormerEmployees.sln --configuration Release --no-restore
+        run: dotnet build SnipeITSyncFormerEmployees.sln --configuration Release --no-restore -p:SkipSpaBuild=true
 
       # No test project exists yet. Once one is added, uncomment the step below and
       # CI will start gating merges on passing tests as well.
@@ -65,3 +67,7 @@ jobs:
       - name: Build (includes Vite SPA build)
         run: dotnet build SnipeSync.Dashboard.csproj --configuration Release --no-restore
         working-directory: dashboard/SnipeSync.Dashboard
+
+      - name: Lint SPA
+        run: npm run lint
+        working-directory: dashboard/frontend

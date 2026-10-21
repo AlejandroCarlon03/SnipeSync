@@ -9,9 +9,13 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\SnipeSync.Core\SnipeSync.Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
         <FrameworkReference Include="Microsoft.AspNetCore.App"/>
+        <!-- Graph, Polly and Azure.Identity come in through SnipeSync.Core. -->
         <PackageReference Include="Azure.Data.Tables" Version="12.9.1" />
-        <PackageReference Include="Azure.Identity" Version="1.21.0" />
         <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.46.0" />
         <!-- Cosmos SDK v3's default serializer requires an explicit Newtonsoft.Json reference. -->
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
@@ -20,11 +24,6 @@
         <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Timer" Version="4.3.1" />
         <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Storage.Queues" Version="5.5.0" />
         <PackageReference Include="Microsoft.Azure.Functions.Worker.OpenTelemetry" Version="1.2.0"/>
-        <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="9.0.0" />
-        <PackageReference Include="Polly.Extensions.Http" Version="3.0.0" />
-        <PackageReference Include="Microsoft.Graph" Version="6.2.0" />
-        <PackageReference Include="Microsoft.Identity.Web" Version="4.11.0" />
-        <PackageReference Include="Microsoft.Identity.Web.GraphServiceClient" Version="4.11.0" />
         <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3"/>
         <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.7.0"/>
         <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Http.AspNetCore" Version="2.1.0"/>

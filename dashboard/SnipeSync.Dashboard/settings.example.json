@@ -1,0 +1,15 @@
+{
+  "//": "SnipeSync settings. Lives at %LOCALAPPDATA%\\SnipeSync\\settings.json. Same keys as the old Functions local.settings.json; see the README for every optional setting.",
+  "Values": {
+    "AZURE_TENANT_ID": "<Entra tenant id>",
+    "AZURE_CLIENT_ID": "<app registration client id>",
+    "AZURE_CLIENT_SECRET": "<app registration client secret>",
+    "SNIPEIT_URL": "<https://your-snipe-it-host>",
+    "SNIPEIT_API_KEY": "<Snipe-IT API token>",
+
+    "DRY_RUN": "false",
+    "ONBOARD_LOOKBACK_DAYS": "7",
+    "LICENSE_SYNC_ENABLED": "false",
+    "TEAMS_WEBHOOK_URL": ""
+  }
+}

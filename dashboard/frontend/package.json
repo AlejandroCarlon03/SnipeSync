@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "icons": "node scripts/icons.mjs"
   },
   "dependencies": {
     "react": "^19.2.7",
@@ -20,6 +21,8 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
     "oxlint": "^1.71.0",
+    "png-to-ico": "^2.1.8",
+    "sharp": "^0.34.4",
     "typescript": "~6.0.2",
     "vite": "^8.1.1"
   }
