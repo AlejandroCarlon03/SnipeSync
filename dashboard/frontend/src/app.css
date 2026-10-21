@@ -435,6 +435,39 @@
   overflow-wrap: anywhere;
 }
 
+/* A new release: same strip as .alert, in the accent rather than the error colour. */
+.update {
+  display: flex;
+  align-items: center;
+  gap: 10px 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  color: var(--ink);
+}
+
+.update > svg {
+  color: var(--accent-text);
+  flex: none;
+}
+
+.update__text {
+  margin: 0;
+  flex: 1 1 260px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.update__text a {
+  color: var(--accent-text);
+}
+
+.update__error {
+  color: var(--bad);
+}
+
 /* ----------------------------------------------------------------- board */
 
 /* One connected status band: four stations on a shared line, not four cards. */

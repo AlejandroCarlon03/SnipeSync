@@ -61,12 +61,26 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Comment: "Open th
 ; A per-user task needs no elevation. /F replaces an existing one, so reinstalling is safe.
 Filename: "{sys}\schtasks.exe"; Parameters: "/Create /F /SC DAILY /ST 02:00 /TN ""{#NightlyTask}"" /TR ""\""{app}\{#AppExe}\"" --sync"""; Flags: runhidden; Tasks: nightly; StatusMsg: "Scheduling the nightly sync..."
 Filename: "{app}\{#AppExe}"; Description: "Open SnipeSync now"; Flags: nowait postinstall skipifsilent
+; A self-update from the dashboard runs this silently with /RELAUNCH; bring the dashboard back, without
+; a second window (the one that started the update reloads itself).
+Filename: "{app}\{#AppExe}"; Parameters: "--after-update"; Flags: nowait; Check: ShouldRelaunch
 
 [UninstallRun]
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /F /TN ""{#NightlyTask}"""; Flags: runhidden; RunOnceId: "RemoveNightlySync"
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM {#AppExe}"; Flags: runhidden; RunOnceId: "StopDashboard"
 
 [Code]
+// /RELAUNCH is passed only by the dashboard's self-update (see Updater.cs).
+function ShouldRelaunch: Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 1 to ParamCount do
+    if CompareText(ParamStr(I), '/RELAUNCH') = 0 then
+      Result := True;
+end;
+
 // Unticking the nightly task on a reinstall should remove a task an earlier install created.
 procedure CurStepChanged(CurStep: TSetupStep);
 var

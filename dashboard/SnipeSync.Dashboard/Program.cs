@@ -51,10 +51,15 @@ var headless = args.Contains("--headless")
     || string.Equals(Environment.GetEnvironmentVariable("DASHBOARD_HEADLESS"), "1", StringComparison.Ordinal);
 var browserMode = !windowMode && !headless;
 
+// --after-update: the installer restarting us after a self-update. The Edge window that started the
+// update is still open and reloads itself once we answer, so don't open a second one.
+var afterUpdate = args.Contains("--after-update");
+
 // Launching from the shortcut again should reopen the window, not fail to bind the port.
 if (browserMode && IsPortInUse(DashboardPort))
 {
-    OpenInBrowser($"http://127.0.0.1:{DashboardPort}");
+    if (!afterUpdate)
+        OpenInBrowser($"http://127.0.0.1:{DashboardPort}");
     return 0;
 }
 
@@ -72,6 +77,7 @@ builder.Services.Configure<DashboardOptions>(builder.Configuration.GetSection(Da
 builder.Services.AddSingleton(new SqliteAuditDb(LocalSettings.AuditDbPath));
 builder.Services.AddSingleton<IAuditReader, SqliteAuditReader>();
 builder.Services.AddSingleton<SyncRunner>();
+builder.Services.AddSingleton<Updater>();
 
 // Loopback only; the dashboard is a local single-user tool. The Photino window gets an OS-assigned port.
 builder.WebHost.UseUrls(windowMode ? "http://127.0.0.1:0" : $"http://127.0.0.1:{DashboardPort}");
@@ -189,6 +195,43 @@ app.MapPost("/api/settings/import", async (HttpRequest req) =>
     }
 });
 
+// --- Self-update --------------------------------------------------------------------------------------
+// Headless is the dev loop (Vite proxies to it); a dev build has nothing to update to.
+app.MapGet("/api/update", async (Updater updater, CancellationToken ct) =>
+    Results.Ok(headless ? updater.Status : await updater.CheckAsync(force: false, ct)));
+
+app.MapPost("/api/update/check", async (HttpRequest req, Updater updater, CancellationToken ct) =>
+{
+    if (!req.Headers.ContainsKey(SyncHeader))
+        return Results.StatusCode(StatusCodes.Status403Forbidden);
+    return Results.Ok(headless ? updater.Status : await updater.CheckAsync(force: true, ct));
+});
+
+app.MapPost("/api/update/install", async (HttpRequest req, Updater updater, SyncRunner runner,
+    IHostApplicationLifetime lifetime, CancellationToken ct) =>
+{
+    if (!req.Headers.ContainsKey(SyncHeader))
+        return Results.StatusCode(StatusCodes.Status403Forbidden);
+    if (headless)
+        return Results.BadRequest(new { error = "Updates are off in headless (development) mode." });
+    // The installer closes this process to replace the exe, which would cut a sync off halfway.
+    if (runner.IsRunning)
+        return Results.Conflict(new { error = "Wait for the sync to finish before updating." });
+
+    try
+    {
+        await updater.InstallAsync(ct);
+    }
+    catch (Exception e) when (e is InvalidOperationException or HttpRequestException or IOException)
+    {
+        return Results.BadRequest(new { error = e.Message });
+    }
+
+    // Exit once this response is on its way, so the installer finds the exe free.
+    _ = Task.Delay(TimeSpan.FromSeconds(1)).ContinueWith(_ => lifetime.StopApplication());
+    return Results.Accepted("/api/update", updater.Status);
+});
+
 // SPA fallback for client-side routing.
 app.MapFallbackToFile("index.html");
 
@@ -199,7 +242,8 @@ var boundUrl = app.Services.GetRequiredService<IServer>().Features
 
 if (browserMode)
 {
-    OpenInBrowser(boundUrl);
+    if (!afterUpdate)
+        OpenInBrowser(boundUrl);
     await app.WaitForShutdownAsync();
     return 0;
 }

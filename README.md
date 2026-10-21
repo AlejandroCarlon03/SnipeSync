@@ -30,6 +30,26 @@ Settings and the audit database (`audit.db`, SQLite) live in `%LOCALAPPDATA%\Sni
 the install folder, so upgrades and uninstalls keep them. The nightly task runs
 `SnipeSync.Dashboard.exe --sync` and writes its output to `last-sync.log` in the same folder.
 
+### Shipping an update
+
+Every installed copy checks this repo's latest GitHub release when the dashboard opens (and every few
+hours while it stays open). When the release is newer than what's installed, the dashboard shows
+**SnipeSync x.y.z is available** with an **Update now** button: it downloads the release's installer,
+checks it against GitHub's SHA-256, runs it silently (per-user, no admin prompt), and reopens the
+dashboard on the new version. Settings, the audit database and the nightly task are kept.
+
+To publish one, commit and push, then (needs the GitHub CLI signed in: `gh auth login`):
+
+```
+installer\release.cmd 1.0.1
+installer\release.cmd 1.0.1 "What changed, in one line"
+```
+
+That runs `build.cmd` and creates release `v1.0.1` with `SnipeSync-Setup-1.0.1.exe` attached. Keep
+those names: the dashboard looks for exactly that tag and asset. Versions only go up; drafts and
+pre-releases are ignored, so a pre-release can be tried by hand first. The repo the dashboard checks
+is `SnipeSync:UpdateRepository` in `appsettings.json` (empty turns the check off).
+
 ### One sync, four steps
 
 A sync runs these in order (spaced so they never hit Snipe-IT's rate limit at once). Only one sync

@@ -9,6 +9,7 @@ import { StatTile } from "./components/StatTile";
 import { SyncButton } from "./components/SyncButton";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { UnmatchedPanel } from "./components/UnmatchedPanel";
+import { UpdateBanner } from "./components/UpdateBanner";
 import { formatUtc, relativeFromNow, toUtcDate } from "./format";
 import { isUnmatched, LINES } from "./lines";
 import { applyTableView, DEFAULT_SORT, type Sort } from "./lib/tableView";
@@ -327,6 +328,8 @@ export function App() {
       </header>
 
       <main className="workspace">
+        <UpdateBanner />
+
         <section className="filters" aria-label="Filters">
           <label className="field">
             <span className="field-label">From</span>

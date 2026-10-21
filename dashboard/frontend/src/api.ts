@@ -3,6 +3,7 @@
  *  - AuditRecord      -> SnipeSync.Core/Models/AuditRecord.cs   (GET /api/audit)
  *  - AuditStats       -> SnipeSync.Core/Models/AuditStats.cs    (GET /api/audit/stats)
  *  - SyncStatus       -> SnipeSync.Dashboard/SyncRunner.cs      (GET /api/sync/status)
+ *  - UpdateStatus     -> SnipeSync.Dashboard/Updater.cs         (GET /api/update)
  * Keep these in step with those types.
  */
 import { config } from "./config";
@@ -95,6 +96,18 @@ export interface SyncStatus {
   run: SyncRun | null;
 }
 
+/** GET /api/update: the running version and the latest published release. */
+export interface UpdateStatus {
+  current: string;
+  latest: string | null;
+  available: boolean;
+  notes: string | null;
+  releaseUrl: string | null;
+  installing: boolean;
+  error: string | null;
+  checkedAt: string | null;
+}
+
 export interface AuditFilters {
   from?: string;
   to?: string;
@@ -184,4 +197,10 @@ export const api = {
   /** Replaces the host's settings with the Values from an old Functions local.settings.json. */
   importSettings: (localSettingsJson: string) =>
     post<{ imported: string[]; missingSettings: string[] }>("/api/settings/import", localSettingsJson),
+
+  /** The host checks GitHub at most every few hours; this returns its last answer. */
+  updateStatus: () => getJson<UpdateStatus>("/api/update"),
+
+  /** Downloads and starts the installer; the host exits a moment after answering. */
+  installUpdate: () => post<UpdateStatus>("/api/update/install", ""),
 };
