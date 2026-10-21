@@ -5,3 +5,7 @@
 .claude/
 .impeccable/
 dashboard/frontend/.impeccable/
+
+# Build output for every project in the repo.
+bin/
+obj/

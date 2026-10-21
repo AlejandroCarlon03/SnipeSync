@@ -87,7 +87,8 @@ public class SyncOptions
 
     // --- Feature 6: dry-run -----------------------------------------------------
     /// <summary>When true, all mutating Snipe-IT calls are skipped and only logged.</summary>
-    public bool DryRun { get; }
+    /// <remarks>Init-settable so the dashboard can force a single run into dry-run from the UI.</remarks>
+    public bool DryRun { get; init; }
 
     // --- Feature 9: group scoping -----------------------------------------------
     /// <summary>Optional Entra security-group object id to scope the sync to (e.g. "DKB Employees").</summary>
