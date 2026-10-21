@@ -1,391 +1,467 @@
 ---
 name: SnipeSync Audit Dashboard
-description: A warm-paper reading surface for an audit trail, where one blue voice carries every signal.
+description: The sync drawn as a transit network on midnight enamel; four line inks, one cyan interactive voice, amber for whatever the sync declined to act on.
 colors:
-  page: "#f9f9f7"
-  surface: "#fcfcfb"
-  surface-raised: "#ffffff"
-  ink-primary: "#0b0b0b"
-  ink-secondary: "#52514e"
-  ink-muted: "#898781"
-  border: "rgba(11, 11, 11, 0.1)"
-  border-strong: "rgba(11, 11, 11, 0.16)"
-  gridline: "#e1e0d9"
-  baseline: "#c3c2b7"
-  accent: "#2a78d6"
-  accent-wash: "rgba(42, 120, 214, 0.08)"
-  series-created: "#2a78d6"
-  series-titles: "#1baf7a"
-  series-failed: "#d03b3b"
-  status-good: "#0ca30c"
-  status-good-text: "#006300"
-  status-warning: "#fab219"
-  status-critical: "#d03b3b"
+  page: "#e8edf5"
+  surface: "#ffffff"
+  surface-2: "#f2f5fa"
+  surface-3: "#e6ecf5"
+  ink: "#0a1733"
+  ink-2: "#33425f"
+  ink-muted: "#56647f"
+  rule: "rgba(10, 30, 70, 0.11)"
+  rule-strong: "rgba(10, 30, 70, 0.22)"
+  dots: "rgba(10, 30, 70, 0.07)"
+  accent: "#0a7491"
+  accent-text: "#08677f"
+  accent-ink: "#ffffff"
+  accent-wash: "rgba(10, 116, 145, 0.09)"
+  accent-glow: "rgba(10, 116, 145, 0.18)"
+  line-offboard: "#c93d29"
+  line-reconcile: "#6a4ed6"
+  line-onboard: "#11805a"
+  line-licenses: "#2360d2"
+  anomaly: "#945c00"
+  anomaly-fill: "#f4a81c"
+  anomaly-wash: "rgba(244, 168, 28, 0.14)"
+  good: "#11805a"
+  bad: "#c93d29"
+  rail: "#061127"
+  rail-2: "#0d1d3c"
+  rail-ink: "#e8f0ff"
+  rail-ink-2: "#a9bbdc"
+  rail-rule: "rgba(140, 180, 255, 0.16)"
+  rail-accent: "#35d0ee"
+  rail-accent-ink: "#03202a"
 typography:
   display:
-    fontFamily: "system-ui, -apple-system, Segoe UI, sans-serif"
-    fontSize: "32px"
-    fontWeight: 640
-    lineHeight: 1.15
-    letterSpacing: "-0.025em"
-  headline:
-    fontFamily: "system-ui, -apple-system, Segoe UI, sans-serif"
-    fontSize: "15px"
-    fontWeight: 650
-    lineHeight: 1.5
-    letterSpacing: "normal"
-  title:
-    fontFamily: "system-ui, -apple-system, Segoe UI, sans-serif"
-    fontSize: "14px"
-    fontWeight: 620
-    lineHeight: 1.5
+    fontFamily: "Bahnschrift, DIN Alternate, DIN 2014, Segoe UI, system-ui, sans-serif"
+    fontSize: "40px"
+    fontWeight: 600
+    lineHeight: 1.05
     letterSpacing: "-0.01em"
+  headline:
+    fontFamily: "Bahnschrift, DIN Alternate, DIN 2014, Segoe UI, system-ui, sans-serif"
+    fontSize: "24px"
+    fontWeight: 600
+    lineHeight: 1.15
+  title:
+    fontFamily: "Bahnschrift, DIN Alternate, DIN 2014, Segoe UI, system-ui, sans-serif"
+    fontSize: "16px"
+    fontWeight: 600
+    lineHeight: 1.5
   body:
-    fontFamily: "system-ui, -apple-system, Segoe UI, sans-serif"
+    fontFamily: "Segoe UI Variable Text, Segoe UI, system-ui, sans-serif"
     fontSize: "13px"
     fontWeight: 400
     lineHeight: 1.5
-    letterSpacing: "normal"
+    fontFeature: "tnum"
   label:
-    fontFamily: "system-ui, -apple-system, Segoe UI, sans-serif"
+    fontFamily: "Bahnschrift, DIN Alternate, DIN 2014, Segoe UI, system-ui, sans-serif"
     fontSize: "11px"
-    fontWeight: 600
+    fontWeight: 500
     lineHeight: 1.5
-    letterSpacing: "0.05em"
+    letterSpacing: "0.06em"
+    fontVariation: "wdth 87.5"
+  data:
+    fontFamily: "Cascadia Mono, Consolas, ui-monospace, monospace"
+    fontSize: "12px"
+    fontWeight: 400
+    lineHeight: 1.55
 rounded:
+  tick: "3px"
+  sm: "4px"
+  plaque: "6px"
   pill: "999px"
-  sm: "6px"
-  md: "8px"
-  lg: "12px"
 spacing:
   xs: "4px"
   sm: "8px"
-  md: "14px"
-  lg: "18px"
+  md: "12px"
+  lg: "16px"
   xl: "24px"
 components:
   button-primary:
     backgroundColor: "{colors.accent}"
-    textColor: "#ffffff"
-    rounded: "{rounded.md}"
-    padding: "8px 16px"
-    typography: "{typography.body}"
+    textColor: "{colors.accent-ink}"
+    rounded: "{rounded.sm}"
+    height: "32px"
+    padding: "0 13px"
+  button-primary-rail:
+    backgroundColor: "{colors.rail-accent}"
+    textColor: "{colors.rail-accent-ink}"
+    rounded: "{rounded.sm}"
+    height: "32px"
+    padding: "0 13px"
+  button-ghost:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink-2}"
+    rounded: "{rounded.sm}"
+    height: "32px"
+    padding: "0 13px"
   icon-button:
-    backgroundColor: "{colors.surface-raised}"
-    textColor: "{colors.ink-secondary}"
-    rounded: "{rounded.md}"
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink-2}"
+    rounded: "{rounded.sm}"
     height: "32px"
     width: "32px"
-  icon-button-hover:
-    backgroundColor: "{colors.surface-raised}"
-    textColor: "{colors.ink-primary}"
-  card:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.ink-primary}"
-    rounded: "{rounded.lg}"
-    padding: "16px 18px"
-  tile:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.ink-primary}"
-    rounded: "{rounded.lg}"
-    padding: "16px 18px"
-  search-field:
-    backgroundColor: "{colors.surface-raised}"
-    textColor: "{colors.ink-primary}"
-    rounded: "{rounded.md}"
-    height: "30px"
+  field-input:
+    backgroundColor: "{colors.surface-2}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.sm}"
+    height: "32px"
     padding: "0 10px"
+  search-field:
+    backgroundColor: "{colors.surface-2}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.sm}"
+    height: "36px"
+    padding: "0 12px"
+  segmented-track:
+    backgroundColor: "{colors.surface-3}"
+    rounded: "{rounded.sm}"
+    padding: "2px"
   segmented-button:
     backgroundColor: "transparent"
-    textColor: "{colors.ink-secondary}"
-    rounded: "{rounded.sm}"
-    padding: "5px 11px"
-  segmented-button-active:
-    backgroundColor: "{colors.surface-raised}"
-    textColor: "{colors.ink-primary}"
-    rounded: "{rounded.sm}"
-    padding: "5px 11px"
-  table-header:
+    textColor: "{colors.ink-2}"
+    rounded: "{rounded.tick}"
+    height: "26px"
+    padding: "0 10px"
+  segmented-button-on:
     backgroundColor: "{colors.surface}"
+    textColor: "{colors.accent-text}"
+    rounded: "{rounded.tick}"
+    height: "26px"
+    padding: "0 10px"
+  panel:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.plaque}"
+    padding: "14px 16px"
+  board-tile:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    typography: "{typography.display}"
+    padding: "16px 20px 15px"
+  table-header:
+    backgroundColor: "{colors.surface-2}"
     textColor: "{colors.ink-muted}"
     typography: "{typography.label}"
-    padding: "9px 18px"
-  chip-dry-run:
-    textColor: "{colors.ink-secondary}"
+    height: "34px"
+    padding: "0 10px"
+  action-chip:
+    textColor: "{colors.ink}"
     rounded: "{rounded.pill}"
-    padding: "1px 7px"
-  avatar:
-    backgroundColor: "{colors.accent-wash}"
-    textColor: "{colors.accent}"
-    rounded: "{rounded.pill}"
-    height: "28px"
-    width: "28px"
+    height: "22px"
+    padding: "0 8px 0 7px"
+  chip:
+    textColor: "{colors.ink-2}"
+    rounded: "{rounded.tick}"
+    height: "20px"
+    padding: "0 7px"
+  chip-dry:
+    textColor: "{colors.anomaly}"
+    rounded: "{rounded.tick}"
+    height: "20px"
+    padding: "0 7px"
+  rail:
+    backgroundColor: "{colors.rail}"
+    textColor: "{colors.rail-ink}"
+    height: "56px"
+    padding: "0 24px"
 ---
 
 # Design System: SnipeSync Audit Dashboard
 
 ## Overview
 
-**Creative North Star: "The Quiet Ledger"**
+**Creative North Star: "Midnight Line"**
 
-This is a record you read, not a dashboard that performs. The surface is warm paper —
-`#f9f9f7`, not a neutral grey — ruled with warm hairlines at `#e1e0d9`, carrying near-black
-ink at `#0b0b0b`. Nothing glows, nothing gradients, nothing floats without cause. The system
-behaves like a well-kept logbook: the entries are the point, and the interface's job is to
-stay out of their way while making them scannable.
+The sync is a transit network. Four functions are four lines (offboard, reconcile, onboard,
+licenses), and every audited action is a station a person reached on one of them. The
+dashboard is the network map and the departures board at once: a navy rail across the top,
+a ruled filter strip, one connected status band where the four counts sit as stations on a
+shared track, and a ledger of records whose inspector draws the route the person travelled
+and where it stopped.
 
-Restraint here is structural, not timid. The palette holds exactly one interactive voice —
-a single blue accent — and spends it only on things that are actually interactive or
-actually selected. Every other color in the system is either ink, paper, a rule, or a
-status. That discipline is what lets a red `#d03b3b` failure read as urgent on a page with
-979 rows on it: nothing else is competing for that register.
+The material is enamel signage. The dark theme is midnight enamel (navy ground with a faint
+dot grid, porcelain ink); the light theme is porcelain enamel with the same dot grid in
+navy. Each theme's steps are chosen for its own ground, not inverted. Titles and numerals are
+set in Bahnschrift, the DIN 1451 lineage of road and rail lettering. Containers are 6px
+plaques edged with 1px rules; stations are ringed circles.
 
-The system is built for someone who already knows the domain and is reading a lot of rows
-quickly. Density is deliberate — 13px table body, 9-10px cell padding, 30px controls — and
-the type scale earns its hierarchy through weight and tracking rather than size jumps. The
-one place the system raises its voice is the stat tile value: 32px at weight 640 with
--0.025em tracking, because a count is the one thing worth seeing from across the desk.
+Colour is spent by meaning, never by decoration. Line inks identify which line something
+belongs to; amber marks anything the sync declined to act on; cyan is the only voice that
+means "you can touch this". The system is dense, built for an operator scanning hundreds of
+rows and opening one to read why.
 
 **Key Characteristics:**
-- Warm paper ground, never neutral grey — the whole neutral ramp is tinted
-- Exactly one accent voice, spent only on interaction and selection
-- Hairline borders define space; shadows are nearly absent at rest
-- Dense by intent, tuned for reading many rows fast
-- Numeric font weights (550/620/640/650) rather than the 400/700 default pair
-- Dark theme is a selected palette, never an inversion
+- Navy rail in both themes; porcelain or midnight enamel page beneath, with an 18px dot grid
+- Four line inks for identity, amber for refusals, cyan alone for interaction
+- Bahnschrift for numerals, titles, and uppercase labels; Segoe UI Variable for running text
+- 6px plaques, 1px rules, ringed-circle stations
+- Shape always carries meaning alongside colour: ring vs dot, dashed vs solid
+- Tabular numerals everywhere
 
 ## Colors
 
-A warm, near-neutral ground carrying one blue interactive voice and a strict three-state
-status triad.
+A navy-and-enamel ground carrying four line inks, one amber anomaly signal, and one cyan
+interactive voice. Light values are in the frontmatter; dark values are listed here as the
+theme's own selections.
 
 ### Primary
-- **Signal Blue** (`#2a78d6` light / `#3987e5` dark): The only interactive voice. Primary
-  buttons, focus rings, the active segmented option, sortable-header active state, the
-  avatar monogram, row hover wash, and the `created` data series. If something is blue, it
-  is either interactive, selected, or the created series — never decoration.
-- **Signal Wash** (`rgba(42, 120, 214, 0.08)`): Table row hover and `::selection`. Present
-  at 8% so it registers as a hover cue without becoming a highlight.
+- **Signal Cyan** (accent; dark `#35d0ee`): The only interactive voice. Primary buttons,
+  focus rings, the on-state of toggles, hovered borders on inputs and icon buttons, row hover
+  wash, selection fill and frame, completed sync steps. Text in this hue uses
+  `accent-text` (dark `#62dcf4`), never `accent`, so it holds 4.5:1 on surfaces.
+- **Rail Cyan** (rail-accent): The same voice as it appears on the navy rail, constant in both
+  themes. Rail controls (Sync button, rail toggle, rail focus ring, progress bar) use it, with
+  `rail-accent-ink` as the text on its fill.
 
-### Secondary
-- **Reclaim Green** (`#1baf7a` light / `#199e70` dark): The `titles` data series in the
-  activity chart. Distinct from status green — this is a category, not a verdict.
-- **Failure Red** (`#d03b3b` light / `#e66767` dark): The `failed` data series, and shared
-  with `status-critical`. The one deliberate overlap in the palette: a failed series and a
-  critical status mean the same thing to the reader.
+### Secondary (the line inks)
+- **Offboard Coral** (line-offboard; dark `#ff7f6b`): The offboard line.
+- **Reconcile Violet** (line-reconcile; dark `#b49cff`): The reconciliation retry line.
+- **Onboard Green** (line-onboard; dark `#46d89e`): The onboard line.
+- **Licenses Blue** (line-licenses; dark `#67a3ff`): The license line.
 
-### Neutral
-- **Paper** (`#f9f9f7`): The page ground. Warm-tinted, deliberately not `#fafafa`.
-- **Card Paper** (`#fcfcfb`): Cards, tiles, panels, sticky table headers. A half-step
-  lighter than the page — the separation is tonal before it is ever a shadow.
-- **Raised Paper** (`#ffffff`): Only for things that sit above a card: search fields, icon
-  buttons, the active segmented pill.
-- **Ink** (`#0b0b0b`): Body copy, headings, numbers. Near-black, never pure black in light.
-- **Annotation Ink** (`#52514e`): Secondary labels, badge text, segmented rest state.
-- **Marginalia Ink** (`#898781`): Column headers, hints, placeholders, timestamps, metadata.
-  The only ink shared unchanged between light and dark.
-- **Rule** (`rgba(11, 11, 11, 0.1)`): Every border, divider, and cell separator.
-- **Strong Rule** (`rgba(11, 11, 11, 0.16)`): Hover state on bordered controls only.
-- **Gridline** (`#e1e0d9`) and **Baseline** (`#c3c2b7`): Chart scaffolding. Warm, so the
-  chart sits on the same paper as everything else.
+Line inks appear as station rings, route segments, the 14px stroke before a line name, action
+chip dots and tints, chart bars, and the status band's track. They identify; they never mean
+"good" or "bad".
 
 ### Tertiary
-- **Caution Amber** (`#fab219`): Dry-run chips only. Marks a rehearsal, not a problem.
-- **Verified Green** (`#0ca30c`, text `#006300` in light): Positive deltas and good run
-  status. The text variant exists because `#0ca30c` does not carry enough contrast on warm
-  paper at 12px — the darker `#006300` is used wherever green becomes type.
+- **Anomaly Amber** (anomaly for text, `#945c00` light / `#ffc143` dark; anomaly-fill for
+  shapes, `#f4a81c` light): Everything the sync declined to act on. Unmatched action chips,
+  the lit station on a non-zero anomaly tile, stopped route nodes, the unmatched panel and its
+  avatars, dry-run chips, completed-with-errors outcomes. The light theme splits text
+  (`anomaly`) from fill (`anomaly-fill`) because the saturated amber cannot carry text.
+- **Good / Bad** (good, bad): Delta direction on tiles and sync outcomes. They share hues with
+  onboard and offboard, but they appear only on deltas, outcomes, failed steps, and the error
+  alert.
+
+### Neutral
+- **Enamel Page** (page; dark `#061127`): The ground, under the dot grid.
+- **Plaque** (surface; dark `#0b1a36`): Panels, the status band, the inspector, popovers.
+- **Inset** (surface-2; dark `#0f2244`): Inputs, table header, the old-to-new change block.
+- **Recess** (surface-3; dark `#142a52`): Segmented track, skeleton base.
+- **Ink / Ink-2 / Ink-muted** (dark `#e8f0ff` / `#b2c2e0` / `#8a9dc2`): Primary text,
+  secondary text, metadata and labels. All three measure at least 4.5:1 on surface and
+  surface-2 in both themes.
+- **Rule / Rule-strong**: Every 1px border and divider; rule-strong for control borders,
+  not-reached route dashes, and the trail's spine.
+- **Dots**: The map-sheet dot grid on the page ground.
+- **Rail family** (rail, rail-2, rail-ink, rail-ink-2, rail-rule): Navy enamel, constant
+  across themes. The sync log reuses it as a terminal well.
 
 ### Named Rules
 
-**The One Voice Rule.** The accent is the only hue that means "you can touch this." Never
-introduce a second interactive color, and never use the accent for decoration, emphasis, or
-branding fill. Its scarcity is what makes a focus ring legible.
+**The One Voice Rule.** Cyan is the only interactive colour. A line ink never marks a
+control, and cyan never identifies a line.
 
-**The Warm Neutral Rule.** Every neutral in this system is tinted warm. A pure `#fff`,
-`#fafafa`, or `rgba(0,0,0,…)` grey dropped into this palette reads as a foreign object
-against `#f9f9f7`. Match the tint or don't add the color.
+**The Amber Refusal Rule.** Amber is reserved for anything the sync declined to act on. It is
+never used for emphasis, warning copy, or decoration. Unmatched action chips draw a ring
+instead of a dot, so shape carries the meaning as well as colour.
 
-**The Selected-Dark Rule.** The dark theme is a chosen set of steps, not an inversion.
-Series colors lighten (`#2a78d6` → `#3987e5`), `status-good-text` moves the *opposite*
-direction from its light counterpart (`#006300` → `#0ca30c`), and ink-muted stays put. If
-you change a series color, re-validate both themes for CVD separation and contrast rather
-than computing the counterpart.
+**The Navy Rail Rule.** The top rail is navy in both themes, and its own controls use
+`rail-accent`. Popovers opened from the rail return to the page palette and the page accent.
+
+**The Measured Contrast Rule.** Every text token holds at least 4.5:1 on surface and
+surface-2 in both themes. A new text colour is measured in both before it ships.
 
 ## Typography
 
-**Display / Body / Label Font:** `system-ui, -apple-system, "Segoe UI", sans-serif` — one
-stack for everything. No webfont is loaded, and none should be: the dashboard is a local
-tool that must paint instantly from a loopback origin.
+**Display Font:** Bahnschrift (with DIN Alternate, DIN 2014, Segoe UI)
+**Body Font:** Segoe UI Variable Text (with Segoe UI, system-ui)
+**Label/Mono Font:** Bahnschrift condensed for labels; Cascadia Mono (with Consolas) for data
 
-**Character:** The pairing is the operating system's own voice, which is exactly right for a
-utility that lives beside the OS. Personality comes from weight and tracking, not from
-typeface choice.
+**Character:** Signage over text. Bahnschrift's DIN lettering sets every number and title the
+way a station sign would; Segoe UI Variable carries the reading. Bahnschrift is a Windows
+system face, chosen deliberately because the app ships only as a Windows Edge app window. No
+webfont is loaded.
 
 ### Hierarchy
-- **Display** (640, 32px, 1.15, -0.025em): Stat tile values only. The single largest thing
-  on the page.
-- **Headline** (650, 15px): The product wordmark in the top bar.
-- **Title** (620, 14px, -0.01em): Card and panel headings.
-- **Body** (400, 13-14px, 1.5): Table cells, detail text, running copy. Base is 14px; tables
-  step down to 13px.
-- **Label** (600, 11px, 0.05em, uppercase): Table column headers and detail-grid keys.
-- **Micro** (550-600, 10.5-12.5px): Chips, badges, hints, metadata, control text.
+- **Display** (600, 40px, 1.05, -0.01em): Status band counts only. Drops to 32px under 600px.
+- **Headline** (600, 24px, 1.15): The inspector's record title.
+- **Title** (600, 16px): Panel headings; the ledger heading steps up to 18px, popover
+  headings to 15px, trail heading to 14px.
+- **Body** (400, 13px, 1.5): Table cells, inspector facts, verdict text. Base is 14px with
+  tabular numerals; dense surfaces step down to 12.5-13px. Meta and hints at 11.5-12px.
+- **Label** (500, 11px, 0.06em, uppercase, 87.5% width): Table headers, field labels,
+  fact keys. Tile labels use the same treatment at 13px/0.04em; the route line name at 12px.
+- **Data** (400, 11.5-12px): Identifiers in the inspector and the sync log.
 
 ### Named Rules
 
-**The Numeric Weight Rule.** This system uses 550, 620, 640, and 650 — not 400/500/600/700.
-Those in-between weights are what make dense 12-14px type feel deliberate instead of bolded.
-Preserve the exact numbers; rounding them to the nearest hundred flattens the hierarchy.
+**The Signage Rule.** Numerals and titles are Bahnschrift; sentences are Segoe UI. A count
+set in the body face, or a paragraph set in Bahnschrift, is off-system.
 
-**The Tighter-As-Larger Rule.** Tracking tightens as size grows (-0.025em at 32px, -0.01em
-at 14px, normal at 13px, +0.05em at 11px uppercase). Any new size must join this curve.
+**The Condensed Label Rule.** Uppercase labels are always Bahnschrift at 87.5% width with
+positive tracking. Uppercase appears nowhere else.
 
 ## Layout
 
-A single centered column, `max-width: 1440px`, with 24px page padding and a 20px gap between
-sections. Cards use 16-18px internal padding; the top bar uses 12px/24px.
+A sticky 56px rail, then a workspace capped at 1680px with a 24px gutter (16px at 1080px and
+below) and 16px gaps between bands. Top to bottom: the filter strip (labels above values, one
+ruled plaque), the status band (one plaque, four equal columns divided by 1px rules), then the
+desk: the ledger takes the remaining width and a sticky side column holds the overview or the
+inspector. The side column is 420px (460px while inspecting), 360px / 420px under 1240px,
+sticky beneath the rail and scrolling internally.
 
-The stat tiles are a fixed 4-column grid at desktop, collapsing to 2 columns at 1080px and 1
-column at 720px. The main body is a `split` grid that collapses to a single column at 1080px.
-At 720px the top bar wraps and the health indicator drops to its own full-width row, page
-padding drops to 16px, and card heads tighten to 14px.
+Under 1080px the desk becomes one column, the overview panels sit two-up below the ledger, and
+the inspector becomes a right-hand drawer (up to 480px) over a navy scrim. Under 860px the
+status band becomes 2×2 and the side panels stack.
 
-The top bar is sticky with a translucent `color-mix` background at 88% surface plus a 12px
-backdrop blur — the one genuinely modern material gesture in the system, and it earns its
-place by keeping filters reachable while scrolling 500 rows.
-
-Table headers are independently sticky within their scroll container, and long values wrap
-via `overflow-wrap: anywhere` rather than widening the table.
-
-**The Nowrap Table Rule.** Table cells are `white-space: nowrap` and the wrapper scrolls
-horizontally. Row content never reflows into a second line; the expanded detail row is where
-long content goes.
+Table cells do not wrap; user and detail cells truncate with an ellipsis and the inspector
+carries the full value. Below 1080px user names wrap instead of truncating.
 
 ## Elevation & Depth
 
-**Flat at rest, tonal by construction.** Depth in this system comes from a three-step paper
-ramp — page `#f9f9f7`, card `#fcfcfb`, raised `#ffffff` — and from hairline borders. The two
-shadow tokens are so light in the light theme (`0 1px 2px` at 4% and `0 1px 3px` at 3%) that
-they function as edge definition rather than lift.
-
-Real elevation appears only in response to state or genuine floating: the active segmented
-pill takes `--shadow-card` to lift out of its track, the help FAB carries its own
-`0 3px 12px / 25%`, and the help popover carries `0 8px 28px / 28%`.
-
-In dark, shadows invert their role — `0 1px 2px rgba(0,0,0,0.4)` is doing real work, because
-tonal separation between `#0d0d0d` and `#1a1a19` is subtler than paper-on-paper.
+Flat enamel with tonal layering. Depth comes from the page, surface, surface-2, surface-3
+steps and 1px rules. Plaques carry a near-invisible `shadow-1` for edge definition; only
+genuinely floating things (popovers, the mobile inspector drawer) take `shadow-pop`. Glow is
+the one light-emitting gesture, and it belongs to state: the primary button's 4px cyan halo on
+hover, the pulsing live dot on the rail, the running sync step, and the "here" station on a
+route.
 
 ### Shadow Vocabulary
-- **Card** (`0 1px 2px rgba(11,11,11,0.04), 0 1px 3px rgba(11,11,11,0.03)`): Cards, tiles,
-  the active segmented pill. Edge definition, not lift.
-- **Pop** (`0 4px 16px rgba(11,11,11,0.1), 0 1px 3px rgba(11,11,11,0.06)`): Reserved for
-  genuinely floating surfaces.
+- **Plaque edge** (`shadow-1`; light `0 1px 2px rgba(10,30,70,0.06), 0 2px 6px rgba(10,30,70,0.04)`, dark `0 1px 2px rgba(0,4,16,0.5)`): Filter strip, status band, panels, inspector, active segmented option.
+- **Pop** (`shadow-pop`; light `0 18px 48px -12px rgba(10,30,70,0.28), 0 2px 6px rgba(10,30,70,0.08)`): Popovers and the drawer.
+- **Accent halo** (`0 0 0 4px var(--accent-glow)`): Primary button hover, and the 3px focus halo on inputs and search.
 
 ### Named Rules
 
-**The Border-First Rule.** Separation is a 1px `--border` hairline before it is ever a
-shadow. If a new surface needs to feel distinct, give it the border and the next paper step;
-reach for a shadow only when it actually floats above the page.
+**The Rule-First Rule.** Separation is a 1px rule and the next surface step. A shadow is only
+for something that actually floats.
 
 ## Shapes
 
-Rounded, never soft. Four radii carry the whole system: **12px** (`--radius`) for the large
-containers — cards and tiles; **8px** (`--radius-sm`) for controls and inner panels — icon
-buttons, search fields, segmented tracks, primary buttons; **6-7px** for controls nested
-inside other controls — segmented options, filter inputs; and **999px** for chips, tags, and
-badge dots.
+Three radii and the circle. **6px plaques** for every container (filters, status band,
+panels, inspector, popovers, alerts). **4px** for controls (buttons, icon buttons, inputs,
+search, segmented track, verdict and change blocks, sync log). **3px ticks** for elements
+nested in a control or tiny marks (segmented options, status chips, skeletons). **999px**
+only for action chips and toggle tracks.
 
-Circles are reserved for identity and affordance: the 28px avatar and the 38px help FAB.
+Circles are stations: tile stations (13px, 3px ring), route nodes (17px, 3.5px ring), the
+route roundel (18px, 4px ring), trail dots, sync step dots, avatars. Lines are bars: route
+segments 5px with rounded ends, the band track 2px, the line-badge stroke 14×3px.
 
-Borders are uniformly 1px. There are no dashed borders, no double borders, and no decorative
-strokes anywhere in the system.
+Borders are 1px. Dashing is a meaning, not a style: a dashed border or segment says "not
+built" (a dry run, a stop not reached, a skipped sync step).
 
-**The Nesting Radius Rule.** A nested element's radius is always smaller than its parent's —
-6px options inside an 8px track, 8px controls inside a 12px card. Never match or exceed the
-parent radius.
+**The Dashed Is Unbuilt Rule.** Dry runs are dashed, like a line under construction; live is
+the default and carries no marker. Not-reached stops and skipped steps are dashed for the same
+reason. Never dash anything decoratively.
 
 ## Components
 
 ### Buttons
-- **Shape:** 8px radius (`--radius-sm`), 1px border.
-- **Primary:** Accent fill, white text, 8px/16px padding, weight 550.
-- **Icon:** 32×32 grid-centered, raised paper fill, `--border` stroke, secondary ink.
-  Hover moves ink to primary and border to `--border-strong` over 0.12s — color only, never
-  a transform.
-- **Ghost:** Transparent fill with a `--border` stroke; hover shifts both border and text to
-  the accent.
-- **Disabled:** `opacity: 0.55-0.6` with `cursor: default`. Never a color change.
+- **Shape:** 4px radius, 32px tall, 0 13px padding, 13px/600, icons 13-15px inline SVG.
+- **Primary:** Accent fill, accent-ink text. Hover adds a 4px accent-glow halo, no colour or
+  transform change. On the rail, primary uses rail-accent and rail-accent-ink.
+- **Ghost:** Surface fill, rule-strong border, ink-2 text; hover moves border to accent and
+  text to accent-text.
+- **Icon:** 32px square (28px quiet variant, borderless), rule-strong border; hover inks the
+  glyph and accents the border. On the rail: transparent with rail-rule borders.
+- **Disabled:** opacity 0.55, default cursor.
 
-### Segmented Control
-- **Track:** 5% ink wash, 8px radius, 2px inner padding.
-- **Option:** Transparent, secondary ink, weight 550, 12.5px, 6px radius.
-- **Active:** Raised paper fill, primary ink, plus `--shadow-card` — the pill lifts out of
-  its track. This is the system's clearest example of shadow-as-state.
+### Chips
+- **Action chip:** Pill, 22px, 12px/600 ink text on a 13% tint of the action's line ink with
+  a 38% border and a 7px dot in the ink. Unmatched actions use the amber ring.
+- **Status chip:** 3px tick corners, 20px, 11.5px/600, rule-strong border. Dry-run is the
+  dashed amber variant.
+- **Line badge:** A 14×3px stroke in the line ink, then the line name in ink-2.
 
-### Cards
-- **Corners:** 12px. **Background:** card paper. **Border:** 1px `--border`.
-- **Shadow:** `--shadow-card` (edge definition; see Elevation).
-- **Head:** 16px/18px padding, bottom hairline, title plus optional muted 12px subtitle,
-  with controls right-aligned and allowed to wrap.
-- **Body:** 16px/18px, with a `--flush` variant at zero padding for tables.
+### Cards / Containers
+- **Corner Style:** 6px plaque.
+- **Background:** surface, with surface-2 insets.
+- **Shadow Strategy:** shadow-1 edge only (see Elevation).
+- **Border:** 1px rule; anomaly panels mix 40% anomaly-fill into the rule and wash the head
+  with anomaly-wash.
+- **Internal Padding:** heads 14px 16px 12px; inspector sections inset 18px.
 
-### Stat Tiles
-Card shell plus an 8px 2px-radius series swatch, a 12.5px/550 label that truncates with
-ellipsis, the 32px display value, and a footer carrying a delta and a hint. Delta color is
-semantic: `--status-good-text` up, `--status-critical` down, `--ink-muted` flat, with the
-arrow glyph rotated 180° rather than swapped.
+### Inputs / Fields
+- **Style:** 32px (search 36px), surface-2 fill, rule-strong border, 4px radius, Bahnschrift
+  condensed label above.
+- **Focus:** border to accent plus a 3px accent-glow halo; search focuses on the container
+  via focus-within and tints its icon accent-text.
+- **Toggle:** a real checkbox drawn as a 28×16 switch; on is accent (rail-accent on the rail).
+- **Segmented:** surface-3 track, transparent options; on is surface fill, accent-text, shadow-1.
 
-### Inputs / Search
-30px tall, raised paper, 8px radius, muted-ink icon, borderless transparent `<input>` inside
-the shell. Focus is handled by the *container* (`:focus-within` shifts the border to accent),
-never by an inner outline. Placeholder is muted ink.
+### Navigation
+The rail: 56px navy, logo plus Bahnschrift wordmark at 19px with a ruled subtitle in
+rail-ink-2, then status (a 7px live dot that pulses rail-accent), the Sync button, and icon
+buttons on the right. Focus rings on the rail are rail-accent. A 3px rail-accent progress bar
+sits directly under the rail while a sync runs.
 
-### Tables
-Sticky card-paper header row, 11px uppercase label type in muted ink with 0.05em tracking.
-Body cells 10px/18px, hairline separated, last row's border removed. Row hover is
-`--accent-wash`. Sortable headers are real `<button>`s that inherit the `th`'s typography and
-reserve 8px of arrow width so headers don't shift when the sort column moves. Expanded detail
-rows sit on a 4% accent wash with a definition grid at 220px minimum columns.
+### Status Band (signature)
+One plaque, four stations on a shared track. Each tile has a 13px ringed station in its line
+ink, a condensed uppercase label, and a 2px track that runs from its station through the
+divider into the next tile, fading toward the right. Below: the 40px Bahnschrift count, a
+muted hint, and a delta in good/bad/muted with an SVG arrow rotated for direction. A tile
+flagged as an anomaly with a non-zero count lights up: amber station fill with a 4px wash
+ring, amber count, and an amber wash fading down the tile.
 
-### Person Cell
-28px circular avatar at 14% accent wash with accent monogram at 10.5px/650, beside a stacked
-name (550) and email (11.5px muted). Both lines nowrap.
+### Ledger Table
+Sticky surface-2 header in label type, 34px tall. Rows 9px 10px, separated by rules, first
+column inset 16px. Hover is accent-wash. **Selection is a 16% accent fill plus a full 1px
+accent outline, never a side stripe.** Sortable headers are buttons whose arrow fades in on
+hover and turns accent-text when active.
 
-### Chips and Badges
-Pill chips at 10.5px/600 with 1px/7px padding. `--dry` is amber at 18% fill with a 45% border;
-`--fail` is critical red at 14% fill with a 40% border and red text. Badges are dot-plus-label:
-a 7px circle carrying the status color beside secondary-ink text — **the dot carries the color,
-the text never does.**
+### Route Strip (signature)
+In the inspector, between two rules: a ringed roundel and the line name, then the record's
+stops on an even grid. Each stop owns the segment arriving from the one before; segments draw
+left to right on open with a 110ms stagger. Six stop states:
+- **passed:** ringed node in the line ink, solid segment.
+- **here:** 21px node filled with the line ink, surface ring, outer ink ring and glow; label 650.
+- **stopped:** 21px amber-filled node with a 4px amber-wash ring; label 650.
+- **later:** reached by another loaded record; segment at 55% opacity, label is a link to that record.
+- **not-reached:** 13px node with a 2px rule-strong ring, dashed rule-strong segment, muted label.
+- **transfer:** interchange onto another line; segment blends from this line's ink to the
+  other's, node ringed twice in the other line's ink.
 
-### Floating Help
-38px circular accent FAB fixed 24px from the bottom-right at `z-index: 50`, hovering via
-`filter: brightness(1.1)`. Its panel is `min(420px, 100vw - 48px)`, capped at
-`min(70vh, 560px)` with internal scroll, on card paper with an 8px radius.
+On a dry run, reached segments are dashed in the line ink.
+
+**The Honest Route Rule.** Never draw a stop as not-reached when the loaded data shows it was
+reached. Stops come from the action vocabulary and the person's loaded records, never from
+invention.
+
+### Inspector
+A plaque that slides in 10px from the right over 0.35s. Head: action chip, 24px Bahnschrift
+title, muted relative time, close icon. Then the route strip, a verdict (amber-washed block
+when the sync declined), an old-to-new change block with the old value struck through in
+bad, a two-column fact list with condensed labels, and the person's trail: a vertical spine of
+ringed dots in each record's line ink, the open record filled.
+
+### Popovers
+Absolute under their trigger, min(420px, 100vw - 32px), on surface with rule-strong border,
+6px radius, shadow-pop, sticky head. They use the page palette even when opened from the
+rail. The sync popover draws its steps as a vertical line: done stations filled accent,
+running pulsing, failed filled bad, skipped dashed.
+
+### Activity Chart
+Recharts, horizontal bars per action in each action's line ink (amber for unmatched), or a
+month area in accent. Colours are resolved from tokens during render, keyed on the theme
+prop, because Recharts needs literal values.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** spend the accent only on interaction, selection, and the created series. If a new
-  element is not interactive, it does not get blue.
-- **Do** keep every neutral warm-tinted to match `#f9f9f7` / `#e1e0d9`.
-- **Do** use the exact numeric weights (550, 620, 640, 650) already in the system.
-- **Do** define separation with a 1px `--border` hairline and the next paper step before
-  considering a shadow.
-- **Do** put focus on the container via `:focus-within` for composite controls, and keep the
-  global `:focus-visible` ring (2px accent, 2px offset) intact — it is deliberately absent
-  for mouse users.
-- **Do** give every status a shape or position cue alongside its color — the dot, the arrow,
-  the chip border — so meaning survives color-vision deficiency.
-- **Do** keep transitions at 0.12s and limited to color and border-color.
+- **Do** give every line-owned element its line ink through a `--tone` variable, and every
+  refusal amber.
+- **Do** pair colour with shape: ring vs dot for unmatched, dashed vs solid for unbuilt,
+  filled vs ringed for here vs passed.
+- **Do** set numerals and titles in Bahnschrift and keep tabular numerals on.
+- **Do** keep the rail navy in both themes and use rail-accent for its controls.
+- **Do** set `data-theme` synchronously in ThemeToggle, and resolve chart colours from tokens
+  during render so a theme switch repaints the chart.
+- **Do** measure any new text colour at 4.5:1 on surface and surface-2 in both themes.
+- **Do** draw selection as a fill plus a full 1px outline.
 
 ### Don't:
-- **Don't** invert the light palette to produce dark values. Both themes are hand-selected
-  and CVD-validated; derive nothing.
-- **Don't** introduce a second accent hue, a gradient, or a saturated fill. The system has
-  one voice.
-- **Don't** animate transforms or add motion beyond the existing 0.7s refresh spinner.
-- **Don't** use `#0ca30c` for green *text* in the light theme — that is what
-  `--status-good-text` (`#006300`) exists for.
-- **Don't** let table cells wrap. Long content belongs in the expanded detail row.
-- **Don't** match or exceed a parent's corner radius on a nested element.
-- **Don't** add a webfont. The system stack is a deliberate choice for a local-first tool.
+- **Don't** use amber for anything except what the sync declined to act on.
+- **Don't** mark live runs; only dry runs carry a marker, and that marker is a dash.
+- **Don't** draw a stop as not-reached when a loaded record shows it was reached.
+- **Don't** use a side stripe to mark selection or state.
+- **Don't** use a line ink on a control, or cyan to identify a line.
+- **Don't** load a webfont; Bahnschrift ships with Windows and the app ships only there.
+- **Don't** compute dark values by inverting light ones; each theme's steps are chosen for
+  its own ground.
+- **Don't** use rounded pills for anything but action chips and toggle tracks.

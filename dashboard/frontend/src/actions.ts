@@ -60,6 +60,11 @@ export const ACTION_INFO: ActionInfo[] = [
     description: "A returning employee's existing record was reactivated.",
     source: "OnboardEmployeeSync",
   },
+  {
+    action: "LicenseCheckedOut",
+    description: "A Microsoft 365 license seat was checked out to the user.",
+    source: "LicenseSync",
+  },
 ];
 
 /** Action names in help-panel order — also the order of the filter dropdown. */

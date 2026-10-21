@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { api, type SyncRun, type SyncStatus, type SyncStep, type SyncStepCounts } from "../api";
 import { relativeFromNow } from "../format";
 
@@ -131,8 +131,20 @@ export function SyncButton({ onFinished }: { onFinished: () => void }) {
 
   return (
     <div className="sync" ref={rootRef}>
+      {running && (
+        <span
+          className="sync__progress"
+          role="progressbar"
+          aria-label="Sync progress"
+          aria-valuemin={0}
+          aria-valuemax={4}
+          aria-valuenow={doneSteps}
+          style={{ "--p": Math.max(doneSteps + 0.5, 0.5) / 4 } as CSSProperties}
+        />
+      )}
+
       <button
-        className="btn sync__btn"
+        className={`btn btn--primary sync__btn ${running ? "sync__btn--running" : ""}`}
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="dialog"
@@ -157,11 +169,13 @@ export function SyncButton({ onFinished }: { onFinished: () => void }) {
       </button>
 
       {open && (
-        <div className="sync__panel" role="dialog" aria-label="Sync with Snipe-IT">
-          <div className="help__head">
-            <h3>Sync Entra ID → Snipe-IT</h3>
-            <button className="help__close" onClick={() => setOpen(false)} aria-label="Close">
-              ×
+        <div className="pop sync__panel" role="dialog" aria-label="Sync with Snipe-IT">
+          <div className="pop__head">
+            <h3>Sync Entra ID to Snipe-IT</h3>
+            <button className="icon-btn icon-btn--quiet" onClick={() => setOpen(false)} aria-label="Close">
+              <svg viewBox="0 0 14 14" width="12" height="12" aria-hidden="true">
+                <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
             </button>
           </div>
 
@@ -185,7 +199,7 @@ export function SyncButton({ onFinished }: { onFinished: () => void }) {
                   if (f) void importSettings(f);
                 }}
               />
-              <button className="btn" disabled={busy} onClick={() => fileRef.current?.click()}>
+              <button className="btn btn--primary" disabled={busy} onClick={() => fileRef.current?.click()}>
                 Import settings file…
               </button>
             </div>
@@ -236,9 +250,10 @@ export function SyncButton({ onFinished }: { onFinished: () => void }) {
                 <div className="sync__actions">
                   <label className="toggle" title="Runs every step and records what it would do, without changing Snipe-IT">
                     <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} />
+                    <span className="toggle__track" aria-hidden="true" />
                     Dry run (no changes)
                   </label>
-                  <button className="btn" disabled={busy} onClick={() => void start()}>
+                  <button className="btn btn--primary" disabled={busy} onClick={() => void start()}>
                     {dryRun ? "Start dry run" : "Sync now"}
                   </button>
                 </div>

@@ -1,22 +1,20 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import type { AuditStats } from "../api";
+import { actionToken } from "../lines";
 
-const MONTH_HEIGHT = 300;
-const BAR_SIZE = 22;
-
-// Tone per action, aligned with the summary-tile colours. Unmapped actions use the accent.
-const ACTION_TONES: Record<string, string> = {
-  MarkedFormerEmployee: "#e06c4f",
-  AssetCheckedIn: "#e0955f",
-  LicenseReclaimed: "#d0b24a",
-  AccessoryReclaimed: "#b5c24a",
-  SkippedNoMatch: "#c9a227",
-  UnmatchedAfterReconciliation: "#c97f27",
-  ReconciledMatch: "#4f9de0",
-  Created: "#4fb06a",
-  Rehired: "#6a9de0",
-};
+const MONTH_HEIGHT = 220;
+const BAR_SIZE = 14;
 
 /**
  * Measures the container width so the chart gets explicit dimensions. Recharts'
@@ -65,9 +63,11 @@ type Mode = "action" | "month";
 export function ActivityChart({
   stats,
   theme,
+  loading,
 }: {
   stats: AuditStats | null;
   theme: string;
+  loading?: boolean;
 }) {
   const [mode, setMode] = useState<Mode>("action");
   const [ref, width] = useMeasuredWidth<HTMLDivElement>();
@@ -84,35 +84,60 @@ export function ActivityChart({
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [stats, mode]);
 
-  // Re-resolved whenever the theme flips. The muted token is named --ink-muted in
-  // index.css; asking for --muted silently fell through to the hardcoded grey.
-  // `theme` is the cache key, not an input: the values live in CSS custom properties
-  // read off the DOM, so nothing inside this memo can reference it.
-  const { grid, axis, accent } = useMemo(
+  // Re-resolved whenever the theme flips. `theme` is the cache key, not an input: the
+  // values live in CSS custom properties read off the DOM, so nothing inside this memo
+  // can reference it.
+  const colors = useMemo(
     () => ({
-      grid: token("--border", "#e2e2e2"),
-      axis: token("--ink-muted", "#6b7280"),
-      accent: token("--accent", "#3b6cf6"),
+      grid: token("--rule", "#dde3ee"),
+      axis: token("--ink-muted", "#56647f"),
+      ink: token("--ink", "#0a1733"),
+      surface: token("--surface-2", "#f2f5fa"),
+      rule: token("--rule-strong", "#c4cddd"),
+      accent: token("--accent", "#0a7491"),
+      tones: Object.fromEntries(
+        (stats?.byAction ?? []).map((b) => [b.key ?? "", token(actionToken(b.key ?? ""), "#0a7491")]),
+      ) as Record<string, string>,
     }),
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-    [theme],
+    [theme, stats],
   );
 
-  const actionHeight = Math.max(160, data.length * (BAR_SIZE + 14) + 40);
+  const actionHeight = Math.max(140, data.length * (BAR_SIZE + 16) + 32);
+  const total = data.reduce((acc, d) => acc + d.count, 0);
+
+  const tooltip = {
+    cursor: { fill: colors.grid },
+    contentStyle: {
+      background: colors.surface,
+      border: `1px solid ${colors.rule}`,
+      borderRadius: 4,
+      color: colors.ink,
+      fontSize: 12,
+      padding: "6px 10px",
+    },
+    labelStyle: { color: colors.ink, fontWeight: 600 },
+    itemStyle: { color: colors.ink, padding: 0 },
+  };
 
   return (
     <section className="panel">
       <div className="panel__head">
-        <h2>{mode === "action" ? "Actions breakdown" : "Monthly trend"}</h2>
-        <div className="seg">
+        <div>
+          <h2>{mode === "action" ? "Decisions by action" : "Decisions by month"}</h2>
+          <p className="panel__sub">{total.toLocaleString()} in range</p>
+        </div>
+        <div className="seg" role="group" aria-label="Chart grouping">
           <button
             className={`seg__btn ${mode === "action" ? "seg__btn--on" : ""}`}
+            aria-pressed={mode === "action"}
             onClick={() => setMode("action")}
           >
             By action
           </button>
           <button
             className={`seg__btn ${mode === "month" ? "seg__btn--on" : ""}`}
+            aria-pressed={mode === "month"}
             onClick={() => setMode("month")}
           >
             By month
@@ -120,11 +145,17 @@ export function ActivityChart({
         </div>
       </div>
 
-      <div ref={ref} style={{ padding: 16 }}>
-        {data.length === 0 ? (
-          <div className="muted center" style={{ padding: 24 }}>
-            No data for these filters.
+      <div className="chart">
+        {/* Measured without the padding, so the chart is exactly as wide as its box. */}
+        <div ref={ref}>
+        {loading && data.length === 0 ? (
+          <div className="chart__loading" aria-label="Loading chart">
+            {[80, 55, 40, 24].map((w) => (
+              <span key={w} className="skeleton" style={{ width: `${w}%` }} />
+            ))}
           </div>
+        ) : data.length === 0 ? (
+          <p className="chart__empty">No decisions in this range.</p>
         ) : width > 0 ? (
           mode === "action" ? (
             <BarChart
@@ -132,33 +163,66 @@ export function ActivityChart({
               height={actionHeight}
               data={data}
               layout="vertical"
-              margin={{ top: 4, right: 24, bottom: 4, left: 8 }}
+              margin={{ top: 0, right: 12, bottom: 0, left: 0 }}
             >
-              <CartesianGrid horizontal={false} stroke={grid} />
-              <XAxis type="number" allowDecimals={false} stroke={axis} fontSize={12} />
-              <YAxis type="category" dataKey="label" width={200} stroke={axis} fontSize={12} />
-              <Tooltip cursor={{ fill: "transparent" }} />
-              <Bar dataKey="count" barSize={BAR_SIZE} radius={[0, 4, 4, 0]}>
+              <CartesianGrid horizontal={false} stroke={colors.grid} />
+              <XAxis
+                type="number"
+                allowDecimals={false}
+                stroke={colors.axis}
+                tickLine={false}
+                axisLine={false}
+                fontSize={11}
+              />
+              <YAxis
+                type="category"
+                dataKey="label"
+                width={Math.min(190, width * 0.48)}
+                stroke={colors.axis}
+                tick={{ fill: colors.ink }}
+                tickLine={false}
+                axisLine={false}
+                fontSize={11.5}
+              />
+              <Tooltip {...tooltip} />
+              <Bar dataKey="count" name="Decisions" barSize={BAR_SIZE} radius={[0, 3, 3, 0]}>
                 {data.map((d) => (
-                  <Cell key={d.label} fill={ACTION_TONES[d.label] ?? accent} />
+                  <Cell key={d.label} fill={colors.tones[d.label] ?? colors.accent} />
                 ))}
               </Bar>
             </BarChart>
           ) : (
-            <BarChart
+            <AreaChart
               width={width}
               height={MONTH_HEIGHT}
               data={data}
-              margin={{ top: 4, right: 16, bottom: 4, left: 0 }}
+              margin={{ top: 8, right: 8, bottom: 0, left: -18 }}
             >
-              <CartesianGrid vertical={false} stroke={grid} />
-              <XAxis dataKey="label" stroke={axis} fontSize={12} />
-              <YAxis allowDecimals={false} stroke={axis} fontSize={12} />
-              <Tooltip cursor={{ fill: "transparent" }} />
-              <Bar dataKey="count" fill={accent} radius={[4, 4, 0, 0]} />
-            </BarChart>
+              <defs>
+                <linearGradient id="month-fill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={colors.accent} stopOpacity={0.35} />
+                  <stop offset="100%" stopColor={colors.accent} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} stroke={colors.grid} />
+              <XAxis dataKey="label" stroke={colors.axis} tickLine={false} axisLine={false} fontSize={11} />
+              <YAxis allowDecimals={false} stroke={colors.axis} tickLine={false} axisLine={false} fontSize={11} />
+              <Tooltip {...tooltip} cursor={{ stroke: colors.rule }} />
+              <Area
+                type="monotone"
+                dataKey="count"
+                name="Decisions"
+                stroke={colors.accent}
+                strokeWidth={2.25}
+                fill="url(#month-fill)"
+                dot={{ r: 3.5, fill: colors.surface, stroke: colors.accent, strokeWidth: 2 }}
+                activeDot={{ r: 5, fill: colors.accent, stroke: colors.surface, strokeWidth: 2 }}
+                className="chart__glow"
+              />
+            </AreaChart>
           )
         ) : null}
+        </div>
       </div>
     </section>
   );
