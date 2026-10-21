@@ -50,17 +50,16 @@ core sync keeps working.
 
 ## Operating Context
 
-Two timer-triggered functions run daily — `FormerEmployeeSync` at 2:00 AM,
-`OnboardEmployeeSync` at 3:00 AM, deliberately spaced an hour apart so they do not hit
-Snipe-IT's rate limit simultaneously. `ReconciliationQueueProcessor` drains the
-`sync-unmatched` queue; failures land in `sync-unmatched-poison`.
+The Azure Function App is out of service. The sync now runs from the dashboard itself: the
+**Sync** button runs offboard → retry unmatched → onboard/rehires → license seats in one
+pass (optionally as a dry run), and an optional nightly scheduled task runs the same thing
+headless. Only one sync runs at a time. The audit trail is a local SQLite file.
 
-The dashboard is a Photino desktop shell hosting a React + Vite SPA that reads
-`GET /api/audit`. It is launched on demand, not left open — the syncs run twice a day, so
-the SPA polls at 60s and this is explicitly not a live feed.
-
-A `--browser` launch mode exists because WebView2 black-screens on the maintainer's machine.
-Both paths are real and in use.
+The dashboard is an installed Windows app (Inno Setup, per-user) whose exe serves a React +
+Vite SPA on loopback and opens it in an Edge app window, because WebView2 black-screens on
+the maintainer's machine. It is launched on demand, not left open — syncs are occasional, so
+the SPA polls at 60s (2s only while a sync it started is running) and this is explicitly not
+a live feed.
 
 ## Capabilities and Constraints
 
@@ -68,10 +67,11 @@ Both paths are real and in use.
 
 - **Local-only, never hosted.** The dashboard displays employee PII and is deliberately a
   local desktop app. No design decision may assume a public URL or multi-tenant auth.
-- **Read-only.** The dashboard reads the audit trail. It never writes back to Snipe-IT or
-  Entra; state-changing actions stay in the Functions app.
-- **Must render correctly in a plain browser**, not only in the Photino shell, because
-  `--browser` mode is a working fallback rather than a debug convenience.
+- **One deliberate write path.** The dashboard reads the audit trail, and its only
+  state-changing action is the Sync button, which runs the same sync the timers used to.
+  Every change it makes is audited. Nothing else in the UI writes to Snipe-IT or Entra.
+- **Must render correctly in a plain browser**, because the Edge app window is the shipping
+  launch mode, not the Photino shell.
 
 **Current dashboard capabilities:** date-range / action / function / run-type filters; four
 period-over-period delta tiles; a Recharts by-action and by-month toggle; a "No Snipe-IT
