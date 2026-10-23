@@ -11,7 +11,7 @@ import { ThemeToggle } from "./components/ThemeToggle";
 import { UnmatchedPanel } from "./components/UnmatchedPanel";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { formatUtc, relativeFromNow, toUtcDate } from "./format";
-import { isUnmatched, LINES } from "./lines";
+import { actionTag, isUnmatched, lineForFunction, LINES } from "./lines";
 import { applyTableView, DEFAULT_SORT, type Sort } from "./lib/tableView";
 import { currentTheme, type Theme } from "./lib/theme";
 import { downloadWorkbook, type CellValue } from "./lib/xlsx";
@@ -39,6 +39,12 @@ function daysAgo(n: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() - n);
   return isoDate(d);
+}
+
+/** One bucket's count from a stats grouping: 0 when the bucket is absent, "–" when nothing loaded. */
+function countOf(buckets: { key: string | null; count: number }[] | undefined, key: string): number | string {
+  if (!buckets) return "–";
+  return buckets.find((b) => b.key === key)?.count ?? 0;
 }
 
 /** Sum the counts of a set of actions out of a stats payload. */
@@ -214,7 +220,7 @@ export function App() {
         hint:
           unmatchedPeople === null
             ? "no-match decisions"
-            : `no-match decisions · ${unmatchedPeople} ${unmatchedPeople === 1 ? "person" : "people"} in loaded rows`,
+            : `no-match decisions · ${unmatchedPeople} ${unmatchedPeople === 1 ? "person" : "people"}`,
       },
     ],
     [stats, prevStats, unmatchedPeople],
@@ -259,6 +265,8 @@ export function App() {
   };
 
   const firstLoad = loading && !stats;
+  // When the whole prior period was empty, say so once rather than on every tile.
+  const noBaseline = Boolean(prevStats && prevStats.total === 0 && stats && stats.total > 0);
   const rowCount = search ? visible.length : records.length;
 
   /** Export the rows currently on screen — search and sort included. */
@@ -294,23 +302,40 @@ export function App() {
 
   return (
     <div className="app">
-      <header className="rail">
-        <div className="rail__inner">
+      <header className="top">
+        <div className="top__inner">
           <div className="brand">
-            <img className="brand__logo" src="./favicon.svg" alt="" width={28} height={28} />
-            <h1 className="brand__title">SnipeSync</h1>
-            <span className="brand__sub">Audit trail</span>
+            <img className="brand__logo" src="./favicon.svg" alt="" width={30} height={30} />
+            <div className="brand__text">
+              <h1 className="brand__title">SnipeSync</h1>
+              <span className="brand__sub">Audit trail</span>
+            </div>
           </div>
 
-          <div className="rail__tools">
+          {/* The investigation starts here, so search owns the top bar. */}
+          <label className="search search--top">
+            <svg viewBox="0 0 14 14" width="15" height="15" aria-hidden="true">
+              <circle cx="6" cy="6" r="4.2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+              <path d="m9.2 9.2 3.1 3.1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search a person, action, email, detail…"
+              aria-label="Search audit records"
+            />
+          </label>
+
+          <div className="top__tools">
             <span
-              className="rail__status"
+              className="top__status"
               title={lastLoaded ? `${formatUtc(lastLoaded.toISOString())} UTC` : undefined}
             >
               <span className={`pulse ${autoRefresh ? "pulse--on" : ""}`} aria-hidden="true" />
               updated {relativeFromNow(lastLoaded, now)}
             </span>
-            <label className="toggle toggle--rail" title={`Re-check every ${REFRESH_MS / 1000}s`}>
+            <label className="toggle" title={`Re-check every ${REFRESH_MS / 1000}s`}>
               <input
                 type="checkbox"
                 checked={autoRefresh}
@@ -319,7 +344,6 @@ export function App() {
               <span className="toggle__track" aria-hidden="true" />
               Auto-refresh
             </label>
-            <span className="rail__sep" aria-hidden="true" />
             <ActionHelp />
             <ThemeToggle theme={theme} onChange={setTheme} />
             <SyncButton onFinished={() => void load(true)} />
@@ -327,53 +351,102 @@ export function App() {
         </div>
       </header>
 
-      <main className="workspace">
-        <UpdateBanner />
+      <div className="shell">
+        <aside className="filters" aria-label="Filters">
+          <section className="filter-group">
+            <h2 className="filter-group__title">Date range</h2>
+            <div className="filter-dates">
+              <label className="field">
+                <span className="field-label">From</span>
+                <input type="date" value={filters.from} onChange={(e) => set({ from: e.target.value })} />
+              </label>
+              <label className="field">
+                <span className="field-label">To</span>
+                <input type="date" value={filters.to} onChange={(e) => set({ to: e.target.value })} />
+              </label>
+            </div>
+          </section>
 
-        <section className="filters" aria-label="Filters">
-          <label className="field">
-            <span className="field-label">From</span>
-            <input type="date" value={filters.from} onChange={(e) => set({ from: e.target.value })} />
-          </label>
-          <label className="field">
-            <span className="field-label">To</span>
-            <input type="date" value={filters.to} onChange={(e) => set({ to: e.target.value })} />
-          </label>
-          <label className="field field--grow">
-            <span className="field-label">Action</span>
-            <select value={filters.action} onChange={(e) => set({ action: e.target.value })}>
-              <option value="all">All actions</option>
+          <section className="filter-group">
+            <h2 className="filter-group__title">Run type</h2>
+            <div className="seg seg--full" role="group" aria-label="Run type">
+              {[
+                ["all", "All"],
+                ["false", "Live"],
+                ["true", "Dry run"],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  className={`seg__btn ${filters.dryRun === value ? "seg__btn--on" : ""}`}
+                  aria-pressed={filters.dryRun === value}
+                  onClick={() => set({ dryRun: value })}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="filter-group">
+            <h2 className="filter-group__title">Action</h2>
+            <ul className="facet">
+              <li>
+                <button
+                  className={`facet__item ${filters.action === "all" ? "facet__item--on" : ""}`}
+                  aria-pressed={filters.action === "all"}
+                  onClick={() => set({ action: "all" })}
+                >
+                  <span className="facet__name">All actions</span>
+                  <span className="facet__count">{stats?.total ?? "–"}</span>
+                </button>
+              </li>
               {ACTIONS.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
+                <li key={a}>
+                  <button
+                    className={`facet__item ${filters.action === a ? "facet__item--on" : ""}`}
+                    aria-pressed={filters.action === a}
+                    onClick={() => set({ action: filters.action === a ? "all" : a })}
+                  >
+                    <span className={`facet__mark facet__mark--${actionTag(a)}`} aria-hidden="true" />
+                    <span className="facet__name">{a}</span>
+                    <span className="facet__count">{countOf(stats?.byAction, a)}</span>
+                  </button>
+                </li>
               ))}
-            </select>
-          </label>
-          <label className="field field--grow">
-            <span className="field-label">Function</span>
-            <select value={filters.func} onChange={(e) => set({ func: e.target.value })}>
-              <option value="all">All functions</option>
+            </ul>
+          </section>
+
+          <section className="filter-group">
+            <h2 className="filter-group__title">Function</h2>
+            <ul className="facet">
+              <li>
+                <button
+                  className={`facet__item ${filters.func === "all" ? "facet__item--on" : ""}`}
+                  aria-pressed={filters.func === "all"}
+                  onClick={() => set({ func: "all" })}
+                >
+                  <span className="facet__name">All functions</span>
+                </button>
+              </li>
               {FUNCTIONS.map((f) => (
-                <option key={f} value={f}>
-                  {f}
-                </option>
+                <li key={f}>
+                  <button
+                    className={`facet__item facet__item--two ${filters.func === f ? "facet__item--on" : ""}`}
+                    aria-pressed={filters.func === f}
+                    onClick={() => set({ func: filters.func === f ? "all" : f })}
+                  >
+                    <span className="facet__name">
+                      {lineForFunction(f)?.name ?? f}
+                      <span className="facet__sub">{f}</span>
+                    </span>
+                    <span className="facet__count">{countOf(stats?.byFunction, f)}</span>
+                  </button>
+                </li>
               ))}
-            </select>
-          </label>
-          <label className="field">
-            <span className="field-label">Run type</span>
-            <select value={filters.dryRun} onChange={(e) => set({ dryRun: e.target.value })}>
-              <option value="all">All runs</option>
-              <option value="false">Live only</option>
-              <option value="true">Dry-run only</option>
-            </select>
-          </label>
-          <button
-            className="btn btn--ghost filters__refresh"
-            onClick={() => void load()}
-            disabled={loading}
-          >
+            </ul>
+          </section>
+
+          <button className="btn btn--ghost filters__refresh" onClick={() => void load()} disabled={loading}>
             <svg
               className={loading ? "spin" : undefined}
               viewBox="0 0 16 16"
@@ -392,7 +465,10 @@ export function App() {
             </svg>
             {loading ? "Loading…" : "Refresh"}
           </button>
-        </section>
+        </aside>
+
+      <main className="workspace">
+        <UpdateBanner />
 
         {error && (
           <div className="alert" role="alert">
@@ -417,6 +493,9 @@ export function App() {
         )}
 
         <section className="board" aria-label="This range against the previous period">
+          {noBaseline && (
+            <p className="board__note">No decisions in the prior period, so there is nothing to compare against.</p>
+          )}
           {tiles.map((t) => (
             <StatTile
               key={t.label}
@@ -426,7 +505,9 @@ export function App() {
               tone={t.tone}
               invertDelta={t.invertDelta}
               anomaly={t.anomaly}
-              pending={firstLoad}
+              pending={firstLoad && !error}
+              unknown={Boolean(error) && !stats}
+              hideNoBaseline={noBaseline}
               hint={t.hint}
             />
           ))}
@@ -436,19 +517,6 @@ export function App() {
           <section className="panel ledger" aria-label="Audit records">
             <div className="ledger__head">
               <h2>Audit trail</h2>
-              <span className="search">
-                <svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true">
-                  <circle cx="6" cy="6" r="4.2" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="m9.2 9.2 3.1 3.1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search a person, action, email, detail…"
-                  aria-label="Search audit records"
-                />
-              </span>
               <span className="ledger__count" aria-live="polite">
                 {search ? `${visible.length} of ${records.length}` : `${records.length}`} row
                 {rowCount === 1 ? "" : "s"}
@@ -489,6 +557,7 @@ export function App() {
               selectedId={selected?.id ?? null}
               onSelect={setSelectedId}
               onReset={resetView}
+              failed={Boolean(error)}
               now={now}
             />
           </section>
@@ -504,16 +573,18 @@ export function App() {
                   onClose={closeInspector}
                   now={now}
                 />
+                <UnmatchedPanel records={records} onPick={setSearch} now={now} compact />
               </>
             ) : (
               <>
-                <UnmatchedPanel records={records} onPick={setSearch} now={now} />
+                <UnmatchedPanel records={records} onPick={setSearch} now={now} failed={Boolean(error) || (loading && !stats)} />
                 <ActivityChart stats={stats} theme={theme} loading={loading} />
               </>
             )}
           </aside>
         </div>
       </main>
+      </div>
     </div>
   );
 }

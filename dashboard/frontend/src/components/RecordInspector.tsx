@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { ACTION_INFO } from "../actions";
 import type { AuditRecord } from "../api";
 import { formatUtc, relativeFromNow } from "../format";
-import { actionColor, isUnmatched, routeFor, type Route, type Stop } from "../lines";
+import { actionColor, actionTag, isUnmatched, routeFor, type Route, type Stop } from "../lines";
 
 interface RecordInspectorProps {
   record: AuditRecord;
@@ -44,10 +44,7 @@ export function RecordInspector({ record: r, records, onSelect, onClose, now }: 
     >
       <header className="inspector__head">
         <div className="inspector__titles">
-          <span
-            className={`action ${unmatched ? "action--anomaly" : ""}`}
-            style={{ "--tone": actionColor(r.action, r.function) } as CSSProperties}
-          >
+          <span className={`tag tag--${actionTag(r.action)}`}>
             {r.action}
           </span>
           <h2 id="inspector-title" ref={headingRef} tabIndex={-1}>

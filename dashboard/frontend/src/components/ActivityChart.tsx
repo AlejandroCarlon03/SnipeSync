@@ -11,7 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import type { AuditStats } from "../api";
-import { actionToken } from "../lines";
+import { actionToken, isUnmatched } from "../lines";
 
 const MONTH_HEIGHT = 220;
 const BAR_SIZE = 14;
@@ -125,7 +125,7 @@ export function ActivityChart({
       <div className="panel__head">
         <div>
           <h2>{mode === "action" ? "Decisions by action" : "Decisions by month"}</h2>
-          <p className="panel__sub">{total.toLocaleString()} in range</p>
+          <p className="panel__sub">{stats ? `${total.toLocaleString()} in range` : "not loaded"}</p>
         </div>
         <div className="seg" role="group" aria-label="Chart grouping">
           <button
@@ -155,7 +155,9 @@ export function ActivityChart({
             ))}
           </div>
         ) : data.length === 0 ? (
-          <p className="chart__empty">No decisions in this range.</p>
+          <p className="chart__empty">
+            {stats ? "No decisions in this range." : "Unknown until the audit trail loads."}
+          </p>
         ) : width > 0 ? (
           mode === "action" ? (
             <BarChart
@@ -187,7 +189,14 @@ export function ActivityChart({
               <Tooltip {...tooltip} />
               <Bar dataKey="count" name="Decisions" barSize={BAR_SIZE} radius={[0, 3, 3, 0]}>
                 {data.map((d) => (
-                  <Cell key={d.label} fill={colors.tones[d.label] ?? colors.accent} />
+                  // Declined actions draw like their tags, a tinted bar with a brick edge:
+                  // only actions are filled solid with brick.
+                  <Cell
+                    key={d.label}
+                    fill={colors.tones[d.label] ?? colors.accent}
+                    fillOpacity={isUnmatched(d.label) ? 0.28 : 1}
+                    stroke={isUnmatched(d.label) ? colors.tones[d.label] : undefined}
+                  />
                 ))}
               </Bar>
             </BarChart>

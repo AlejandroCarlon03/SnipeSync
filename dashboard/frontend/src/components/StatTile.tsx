@@ -13,6 +13,10 @@ interface StatTileProps {
   anomaly?: boolean;
   /** First load in flight: show a placeholder rather than a misleading 0. */
   pending?: boolean;
+  /** The board states "no prior period" once, so tiles skip that delta. */
+  hideNoBaseline?: boolean;
+  /** The load failed: show "–", not a placeholder that implies it is still coming. */
+  unknown?: boolean;
 }
 
 function formatDelta(value: number, previous: number): { text: string; pct: number } | null {
@@ -35,8 +39,10 @@ export function StatTile({
   hint,
   anomaly,
   pending,
+  hideNoBaseline,
+  unknown,
 }: StatTileProps) {
-  const delta = formatDelta(value, previous);
+  const delta = hideNoBaseline && previous === 0 ? null : formatDelta(value, previous);
 
   // Direction is the raw movement; sentiment is whether that movement is good.
   const rising = delta ? delta.pct > 0 : false;
@@ -56,14 +62,15 @@ export function StatTile({
         <h3 className="tile__label">{label}</h3>
       </div>
 
-      <div className="tile__value" aria-busy={pending || undefined}>
-        {pending ? <span className="skeleton skeleton--num" /> : value.toLocaleString()}
+      <div className="tile__row">
+        <div className="tile__value" aria-busy={pending || undefined}>
+          {unknown ? "–" : pending ? <span className="skeleton skeleton--num" /> : value.toLocaleString()}
+        </div>
+        <p className="tile__hint">{hint}</p>
       </div>
 
-      <p className="tile__hint">{hint}</p>
-
       <div className="tile__foot">
-        {delta && !pending && (
+        {delta && !pending && !unknown && (
           <span className={`tile__delta tile__delta--${sentiment}`}>
             {!flat && (
               <svg

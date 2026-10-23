@@ -1,59 +1,56 @@
-/* Design tokens: "Midnight Line".
-   The sync is drawn as a transit network. Four line inks (offboard, reconcile, onboard,
-   licenses) plus amber for anything the sync declined to act on; cyan is the only
-   interactive voice. Dark is midnight enamel, light is porcelain enamel; the top rail
-   stays navy in both. Each theme's steps are chosen for its own ground, not inverted. */
+/* Design tokens: "Dense Modules".
+   A packed mosaic of ruled white modules. One muted brick red carries everything that asks
+   for a hand or an eye: the primary action, the active filter, and whatever the sync
+   declined to act on. Only actions are filled with it; marks are tinted washes, so a page
+   full of declined rows stays calm. Everything else is ink and four greys. Dark is a chosen set of steps for a
+   charcoal ground, not an inversion. */
 
 :root {
   color-scheme: light;
 
-  --page: #e8edf5;
+  /* White ground: modules are told apart by their 1px rules, not by a grey gutter. */
+  --page: #ffffff;
   --surface: #ffffff;
-  --surface-2: #f2f5fa;
-  --surface-3: #e6ecf5;
+  --surface-2: #f7f7f7;
+  --surface-3: #ececec;
 
-  --ink: #0a1733;
-  --ink-2: #33425f;
-  --ink-muted: #56647f;
+  --ink: #111111;
+  --ink-2: #3d3d3d;
+  --ink-muted: #6b6b6b;
 
-  --rule: rgba(10, 30, 70, 0.11);
-  --rule-strong: rgba(10, 30, 70, 0.22);
-  --dots: rgba(10, 30, 70, 0.07);
+  --rule: #e0e0e0;
+  --rule-strong: #c9c9c9;
 
-  --accent: #0a7491;
-  --accent-text: #08677f;
+  /* Brick red: actions, active state, and the sync declining. */
+  --accent: #b5443c;
+  --accent-text: #a23b34;
   --accent-ink: #ffffff;
-  --accent-wash: rgba(10, 116, 145, 0.09);
-  --accent-glow: rgba(10, 116, 145, 0.18);
+  --accent-wash: rgba(181, 68, 60, 0.07);
+  --accent-glow: rgba(181, 68, 60, 0.2);
 
-  --line-offboard: #c93d29;
-  --line-reconcile: #6a4ed6;
-  --line-onboard: #11805a;
-  --line-licenses: #2360d2;
-  --anomaly: #945c00;
-  --anomaly-fill: #f4a81c;
-  --anomaly-wash: rgba(244, 168, 28, 0.14);
+  --anomaly: #a23b34;
+  --anomaly-fill: #b5443c;
+  --anomaly-wash: rgba(181, 68, 60, 0.08);
+  --anomaly-line: rgba(181, 68, 60, 0.38);
 
-  --good: #11805a;
-  --bad: #c93d29;
+  /* Functions are told apart by name, not hue; their marks share the ink ramp. */
+  --line-offboard: #111111;
+  --line-reconcile: #3d3d3d;
+  --line-onboard: #3d3d3d;
+  --line-licenses: #6b6b6b;
 
-  --shadow-1: 0 1px 2px rgba(10, 30, 70, 0.06), 0 2px 6px rgba(10, 30, 70, 0.04);
-  --shadow-pop: 0 18px 48px -12px rgba(10, 30, 70, 0.28), 0 2px 6px rgba(10, 30, 70, 0.08);
+  --good: #111111;
+  --bad: #a23b34;
 
-  /* The rail is navy enamel in both themes. */
-  --rail: #061127;
-  --rail-2: #0d1d3c;
-  --rail-ink: #e8f0ff;
-  --rail-ink-2: #a9bbdc;
-  --rail-rule: rgba(140, 180, 255, 0.16);
-  --rail-accent: #35d0ee;
+  --shadow-1: none;
+  --shadow-pop: 0 12px 32px -8px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.06);
 
-  --radius: 6px;
-  --radius-sm: 4px;
+  --radius: 2px;
+  --radius-sm: 2px;
 
   --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
-  /* DIN 1451 lineage: the lettering of road and rail signage. Ships with Windows. */
-  --font-sign: Bahnschrift, "DIN Alternate", "DIN 2014", "Segoe UI", system-ui, sans-serif;
+  /* DIN lineage: condensed headings and every number. Ships with Windows. */
+  --font-sign: Bahnschrift, "DIN 2014", "DIN Alternate", "Segoe UI", system-ui, sans-serif;
   --font-data: "Cascadia Mono", Consolas, ui-monospace, monospace;
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -62,38 +59,38 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --page: #061127;
-  --surface: #0b1a36;
-  --surface-2: #0f2244;
-  --surface-3: #142a52;
+  --page: #0e0e0e;
+  --surface: #181818;
+  --surface-2: #1f1f1f;
+  --surface-3: #2a2a2a;
 
-  --ink: #e8f0ff;
-  --ink-2: #b2c2e0;
-  --ink-muted: #8a9dc2;
+  --ink: #f2f2f2;
+  --ink-2: #c4c4c4;
+  --ink-muted: #9a9a9a;
 
-  --rule: rgba(140, 180, 255, 0.12);
-  --rule-strong: rgba(140, 180, 255, 0.26);
-  --dots: rgba(140, 180, 255, 0.07);
+  --rule: #2e2e2e;
+  --rule-strong: #444444;
 
-  --accent: #35d0ee;
-  --accent-text: #62dcf4;
-  --accent-ink: #03202a;
-  --accent-wash: rgba(53, 208, 238, 0.1);
-  --accent-glow: rgba(53, 208, 238, 0.35);
+  --accent: #ad4a43;
+  --accent-text: #e58e86;
+  --accent-ink: #ffffff;
+  --accent-wash: rgba(229, 142, 134, 0.09);
+  --accent-glow: rgba(229, 142, 134, 0.26);
 
-  --line-offboard: #ff7f6b;
-  --line-reconcile: #b49cff;
-  --line-onboard: #46d89e;
-  --line-licenses: #67a3ff;
-  --anomaly: #ffc143;
-  --anomaly-fill: #ffc143;
-  --anomaly-wash: rgba(255, 193, 67, 0.12);
+  --anomaly: #e58e86;
+  --anomaly-fill: #c4625a;
+  --anomaly-wash: rgba(229, 142, 134, 0.1);
+  --anomaly-line: rgba(229, 142, 134, 0.38);
 
-  --good: #46d89e;
-  --bad: #ff7f6b;
+  --line-offboard: #f2f2f2;
+  --line-reconcile: #c4c4c4;
+  --line-onboard: #c4c4c4;
+  --line-licenses: #9a9a9a;
 
-  --shadow-1: 0 1px 2px rgba(0, 4, 16, 0.5);
-  --shadow-pop: 0 24px 60px -12px rgba(0, 4, 16, 0.75), 0 2px 8px rgba(0, 4, 16, 0.5);
+  --good: #f2f2f2;
+  --bad: #e58e86;
+
+  --shadow-pop: 0 16px 40px -8px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 * {
@@ -109,13 +106,10 @@ body,
 body {
   margin: 0;
   font-family: var(--font);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--ink);
-  background-color: var(--page);
-  /* The map sheet: a faint dot grid under everything. */
-  background-image: radial-gradient(var(--dots) 1px, transparent 1.2px);
-  background-size: 18px 18px;
+  background: var(--page);
   -webkit-font-smoothing: antialiased;
   font-variant-numeric: tabular-nums;
 }
@@ -125,7 +119,7 @@ h2,
 h3 {
   margin: 0;
   font-family: var(--font-sign);
-  font-weight: 600;
+  font-weight: 700;
   text-wrap: balance;
 }
 

@@ -44,18 +44,29 @@ export function lineForFunction(fn: string): LineInfo | null {
   return id ? LINES[id] : null;
 }
 
-/** The colour an action is drawn in: amber for anything unmatched, else its line's ink. */
+/** The colour an action is drawn in: red for anything unmatched, else its line's ink. */
 export function actionColor(action: string, fn?: string): string {
   if (isUnmatched(action)) return "var(--anomaly)";
   const line = ROUTES[action]?.line ?? (fn ? FUNCTION_LINES[fn] : undefined);
-  return line ? LINES[line].color : "var(--accent)";
+  return line ? LINES[line].color : "var(--ink)";
 }
 
 /** Same as actionColor, keyed by the token name so Recharts can resolve a literal value. */
 export function actionToken(action: string): string {
   if (isUnmatched(action)) return "--anomaly";
   const line = ROUTES[action]?.line;
-  return line ? `--line-${line}` : "--accent";
+  return line ? `--line-${line}` : "--ink";
+}
+
+/**
+ * Tag style for an action. Red solid: the sync declined. Black solid: it changed Snipe-IT
+ * (offboarding and reclaiming). Outline: everything else it recorded.
+ */
+export type ActionTag = "red" | "black" | "outline";
+
+export function actionTag(action: string): ActionTag {
+  if (isUnmatched(action)) return "red";
+  return ROUTES[action]?.line === "offboard" ? "black" : "outline";
 }
 
 /**

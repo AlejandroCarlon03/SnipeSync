@@ -1,7 +1,7 @@
-import type { CSSProperties, KeyboardEvent } from "react";
+import type { KeyboardEvent } from "react";
 import type { AuditRecord } from "../api";
 import { formatUtc, relativeFromNow } from "../format";
-import { actionColor, isUnmatched, lineForFunction } from "../lines";
+import { actionTag, isUnmatched, lineForFunction } from "../lines";
 import { SORTABLE_COLUMNS, type Sort, type SortKey } from "../lib/tableView";
 
 interface AuditTableProps {
@@ -16,6 +16,8 @@ interface AuditTableProps {
   onSelect: (id: string | null) => void;
   /** Clears search and filters from the empty state. */
   onReset: () => void;
+  /** The last load failed: the table is empty because nothing arrived, not because nothing happened. */
+  failed?: boolean;
   now: number;
 }
 
@@ -30,6 +32,7 @@ export function AuditTable({
   selectedId,
   onSelect,
   onReset,
+  failed,
   now,
 }: AuditTableProps) {
   const toggleSort = (key: SortKey) => {
@@ -131,19 +134,11 @@ export function AuditTable({
                   {r.dryRun && <span className="chip chip--dry">dry run</span>}
                 </td>
                 <td title={r.function}>
-                  <span
-                    className="line-badge"
-                    style={{ "--tone": line?.color ?? "var(--ink-muted)" } as CSSProperties}
-                  >
-                    <span className="line-badge__name">{line?.name ?? r.function}</span>
-                  </span>
+                  <span className="line-badge">{line?.name ?? r.function}</span>
                 </td>
                 <td className="cell-user">{r.user}</td>
                 <td>
-                  <span
-                    className={`action ${unmatched ? "action--anomaly" : ""}`}
-                    style={{ "--tone": actionColor(r.action, r.function) } as CSSProperties}
-                  >
+                  <span className={`tag tag--${actionTag(r.action)}`}>
                     {r.action}
                   </span>
                 </td>
@@ -152,7 +147,20 @@ export function AuditTable({
             );
           })}
 
-          {records.length === 0 && !loading && (
+          {records.length === 0 && !loading && failed && (
+            <tr className="row-empty">
+              <td colSpan={5}>
+                <div className="empty">
+                  <p className="empty__title">The audit trail didn't load.</p>
+                  <p className="empty__body">
+                    These rows are missing, not empty. Use Try again above once the host is back.
+                  </p>
+                </div>
+              </td>
+            </tr>
+          )}
+
+          {records.length === 0 && !loading && !failed && (
             <tr className="row-empty">
               <td colSpan={5}>
                 <div className="empty">
