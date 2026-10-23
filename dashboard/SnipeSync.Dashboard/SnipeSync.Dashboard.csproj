@@ -27,10 +27,17 @@
     <ProjectReference Include="..\..\SnipeSync.Core\SnipeSync.Core.csproj" />
   </ItemGroup>
 
+  <!-- What BuildSpa rebuilds on. An item, not a literal in Inputs, because Inputs doesn't expand
+       wildcards; without src\** a UI-only change keeps shipping the previous wwwroot. -->
+  <ItemGroup>
+    <SpaBuildInputs Include="$(SpaRoot)\package.json;$(SpaRoot)\vite.config.ts;$(SpaRoot)\index.html" />
+    <SpaBuildInputs Include="$(SpaRoot)\src\**\*" />
+  </ItemGroup>
+
   <!-- Build the React SPA (Vite outputs to this project's ./wwwroot) before the .NET build. -->
   <Target Name="BuildSpa" BeforeTargets="Build"
           Condition="'$(SkipSpaBuild)' != 'true'"
-          Inputs="$(SpaRoot)\package.json;$(SpaRoot)\vite.config.ts;$(SpaRoot)\index.html"
+          Inputs="@(SpaBuildInputs)"
           Outputs="wwwroot\index.html">
     <Message Importance="high" Text="Installing SPA dependencies..." Condition="!Exists('$(SpaRoot)\node_modules')" />
     <Exec Command="npm install" WorkingDirectory="$(SpaRoot)" Condition="!Exists('$(SpaRoot)\node_modules')" />

@@ -49,6 +49,8 @@ Name: "nightly"; Description: "Run a full sync every night at 2:00 AM (replaces 
 Type: filesandordirs; Name: "{localappdata}\SnipeSyncDashboard"
 Type: files; Name: "{autodesktop}\SnipeSync Dashboard.lnk"
 Type: files; Name: "{autoprograms}\SnipeSync Dashboard.lnk"
+; Bundles from earlier versions, so a stale cached page can't still load the old UI.
+Type: filesandordirs; Name: "{app}\wwwroot"
 
 [Files]
 Source: "..\artifacts\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs

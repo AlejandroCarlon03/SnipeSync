@@ -31,16 +31,18 @@ export function UpdateBanner() {
   const [error, setError] = useState<string | null>(null);
   const fromVersion = useRef<string | null>(null);
 
-  const check = useCallback(async () => {
+  const check = useCallback(async (force = false) => {
     try {
-      setStatus(await api.updateStatus());
+      setStatus(await (force ? api.checkForUpdate() : api.updateStatus()));
     } catch {
       // An update check is never worth an error on the dashboard.
     }
   }, []);
 
   useEffect(() => {
-    void check();
+    // The host outlives its window, so reopening from the shortcut reuses its cached answer. Opening a
+    // window is when someone looks for an update, so ask GitHub then.
+    void check(true);
     const id = window.setInterval(() => void check(), CHECK_MS);
     return () => window.clearInterval(id);
   }, [check]);
