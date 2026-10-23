@@ -10,9 +10,8 @@ export function currentTheme(): Theme {
 
 /**
  * Apply and persist a theme. Sets the attribute synchronously rather than from a
- * React effect: ActivityChart resolves its colours out of the computed styles
- * during render, so if the attribute changed only after React committed, the
- * chart would paint one render behind in the previous palette.
+ * React effect, so anything that resolves colours out of the computed styles
+ * during render never paints one render behind in the previous palette.
  */
 export function applyTheme(theme: Theme): void {
   document.documentElement.setAttribute("data-theme", theme);

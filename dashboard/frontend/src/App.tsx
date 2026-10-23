@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ACTIONS } from "./actions";
 import { api, type AuditRecord, type AuditStats } from "./api";
 import { ActionHelp } from "./components/ActionHelp";
-import { ActivityChart } from "./components/ActivityChart";
 import { AuditTable } from "./components/AuditTable";
 import { RecordInspector } from "./components/RecordInspector";
 import { SyncButton } from "./components/SyncButton";
@@ -275,13 +274,22 @@ export function App() {
           </div>
 
           <div className="top__tools">
-            <span
+            {/* The freshness label doubles as the manual refresh. */}
+            <button
               className="top__status"
-              title={lastLoaded ? `${formatUtc(lastLoaded.toISOString())} UTC` : undefined}
+              onClick={() => void load()}
+              disabled={loading}
+              title={
+                lastLoaded
+                  ? `Loaded ${formatUtc(lastLoaded.toISOString())} UTC. Click to refresh now.`
+                  : "Refresh now"
+              }
             >
-              <span className={`pulse ${autoRefresh ? "pulse--on" : ""}`} aria-hidden="true" />
-              updated {relativeFromNow(lastLoaded, now)}
-            </span>
+              <span className={`pulse ${autoRefresh ? "pulse--on" : ""} ${loading ? "pulse--busy" : ""}`} aria-hidden="true" />
+              <span className="top__status-text">
+                {loading ? "loading…" : `updated ${relativeFromNow(lastLoaded, now)}`}
+              </span>
+            </button>
             <label className="toggle" title={`Re-check every ${REFRESH_MS / 1000}s`}>
               <input
                 type="checkbox"
@@ -359,7 +367,9 @@ export function App() {
                   <span className="facet__count">{stats?.total ?? "–"}</span>
                 </button>
               </li>
-              {ACTIONS.map((a) => (
+              {ACTIONS.filter(
+                (a) => !stats || filters.action === a || countOf(stats.byAction, a) !== 0,
+              ).map((a) => (
                 <li key={a}>
                   <button
                     className={`facet__item ${filters.action === a ? "facet__item--on" : ""}`}
@@ -390,14 +400,12 @@ export function App() {
               {FUNCTIONS.map((f) => (
                 <li key={f}>
                   <button
-                    className={`facet__item facet__item--two ${filters.func === f ? "facet__item--on" : ""}`}
+                    className={`facet__item ${filters.func === f ? "facet__item--on" : ""}`}
                     aria-pressed={filters.func === f}
                     onClick={() => set({ func: filters.func === f ? "all" : f })}
+                    title={f}
                   >
-                    <span className="facet__name">
-                      {lineForFunction(f)?.name ?? f}
-                      <span className="facet__sub">{f}</span>
-                    </span>
+                    <span className="facet__name">{lineForFunction(f)?.name ?? f}</span>
                     <span className="facet__count">{countOf(stats?.byFunction, f)}</span>
                   </button>
                 </li>
@@ -405,25 +413,6 @@ export function App() {
             </ul>
           </section>
 
-          <button className="btn btn--ghost filters__refresh" onClick={() => void load()} disabled={loading}>
-            <svg
-              className={loading ? "spin" : undefined}
-              viewBox="0 0 16 16"
-              width="13"
-              height="13"
-              aria-hidden="true"
-            >
-              <path
-                d="M13.2 6.2A5.4 5.4 0 0 0 3.3 5M2.8 9.8a5.4 5.4 0 0 0 9.9 1.2M3 2.4v2.8h2.8M13 13.6v-2.8h-2.8"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            {loading ? "Loading…" : "Refresh"}
-          </button>
         </aside>
 
       <main className="workspace">
@@ -527,7 +516,6 @@ export function App() {
 
           <aside className="side" aria-label="Overview">
             <UnmatchedPanel records={records} onPick={setSearch} now={now} failed={Boolean(error) || (loading && !stats)} />
-            <ActivityChart stats={stats} theme={theme} loading={loading} />
           </aside>
         </div>
       </main>

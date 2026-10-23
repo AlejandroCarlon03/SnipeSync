@@ -1,57 +1,63 @@
-/* Design tokens: "Dense Modules".
-   A packed mosaic of ruled white modules. One muted brick red carries everything that asks
-   for a hand or an eye: the primary action, the active filter, and whatever the sync
-   declined to act on. Only actions are filled with it; marks are tinted washes, so a page
-   full of declined rows stays calm. Everything else is ink and four greys. Dark is a chosen set of steps for a
-   charcoal ground, not an inversion. */
+/* Design tokens: GitHub (Primer) look.
+   Colours are Primer's light and dark-default values. Blue is for what you select or focus,
+   green is the one primary action (Sync), and amber ("attention") marks what the sync
+   declined: a gap to look at, not a failure. Everything else is Primer's neutral ramp. */
 
 :root {
   color-scheme: light;
 
-  /* White ground: modules are told apart by their 1px rules, not by a grey gutter. */
   --page: #ffffff;
   --surface: #ffffff;
-  --surface-2: #f7f7f7;
-  --surface-3: #ececec;
+  --surface-2: #f6f8fa;
+  --surface-3: #eff2f5;
 
-  --ink: #111111;
-  --ink-2: #3d3d3d;
-  --ink-muted: #6b6b6b;
+  --ink: #1f2328;
+  --ink-2: #424a53;
+  --ink-muted: #59636e;
 
-  --rule: #e0e0e0;
-  --rule-strong: #c9c9c9;
+  --rule: #d1d9e0;
+  --rule-strong: #c4cbd3;
 
-  /* Brick red: actions, active state, and the sync declining. */
-  --accent: #b5443c;
-  --accent-text: #a23b34;
+  /* Blue: selection, active filter, focus. */
+  --accent: #0969da;
+  --accent-text: #0969da;
   --accent-ink: #ffffff;
-  --accent-wash: rgba(181, 68, 60, 0.07);
-  --accent-glow: rgba(181, 68, 60, 0.2);
+  --accent-wash: rgba(9, 105, 218, 0.08);
+  --accent-glow: rgba(9, 105, 218, 0.3);
+  --accent-line: rgba(9, 105, 218, 0.4);
 
-  --anomaly: #a23b34;
-  --anomaly-fill: #b5443c;
-  --anomaly-wash: rgba(181, 68, 60, 0.08);
-  --anomaly-line: rgba(181, 68, 60, 0.38);
+  /* Green: the primary action. */
+  --primary: #1f883d;
+  --primary-hover: #1c8139;
+  --primary-border: rgba(31, 35, 40, 0.15);
 
-  /* Functions are told apart by name, not hue; their marks share the ink ramp. */
-  --line-offboard: #111111;
-  --line-reconcile: #3d3d3d;
-  --line-onboard: #3d3d3d;
-  --line-licenses: #6b6b6b;
+  /* Amber: what the sync declined to act on. */
+  --anomaly: #875b00;
+  --anomaly-fill: #bf8700;
+  --anomaly-ink: #1f2328;
+  --anomaly-wash: rgba(212, 167, 44, 0.12);
+  --anomaly-line: rgba(212, 167, 44, 0.45);
 
-  --good: #111111;
-  --bad: #a23b34;
+  --select-bg: rgba(208, 215, 222, 0.32);
+  --counter-bg: rgba(175, 184, 193, 0.2);
+
+  --line-offboard: #1f2328;
+  --line-reconcile: #424a53;
+  --line-onboard: #424a53;
+  --line-licenses: #59636e;
+
+  --good: #1a7f37;
+  --bad: #d1242f;
 
   --shadow-1: none;
-  --shadow-pop: 0 12px 32px -8px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  --shadow-pop: 0 1px 3px rgba(31, 35, 40, 0.12), 0 8px 24px rgba(66, 74, 83, 0.12);
 
-  --radius: 2px;
-  --radius-sm: 2px;
+  --radius: 6px;
+  --radius-sm: 6px;
 
-  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
-  /* DIN lineage: condensed headings and every number. Ships with Windows. */
-  --font-sign: Bahnschrift, "DIN 2014", "DIN Alternate", "Segoe UI", system-ui, sans-serif;
-  --font-data: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  --font-sign: var(--font);
+  --font-data: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -59,38 +65,47 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --page: #0e0e0e;
-  --surface: #181818;
-  --surface-2: #1f1f1f;
-  --surface-3: #2a2a2a;
+  --page: #0d1117;
+  --surface: #0d1117;
+  --surface-2: #151b23;
+  --surface-3: #212830;
 
-  --ink: #f2f2f2;
-  --ink-2: #c4c4c4;
-  --ink-muted: #9a9a9a;
+  --ink: #f0f6fc;
+  --ink-2: #d1d7e0;
+  --ink-muted: #9198a1;
 
-  --rule: #2e2e2e;
-  --rule-strong: #444444;
+  --rule: #3d444d;
+  --rule-strong: #4f5761;
 
-  --accent: #ad4a43;
-  --accent-text: #e58e86;
+  --accent: #1f6feb;
+  --accent-text: #4493f8;
   --accent-ink: #ffffff;
-  --accent-wash: rgba(229, 142, 134, 0.09);
-  --accent-glow: rgba(229, 142, 134, 0.26);
+  --accent-wash: rgba(56, 139, 253, 0.1);
+  --accent-glow: rgba(56, 139, 253, 0.3);
+  --accent-line: rgba(56, 139, 253, 0.45);
 
-  --anomaly: #e58e86;
-  --anomaly-fill: #c4625a;
-  --anomaly-wash: rgba(229, 142, 134, 0.1);
-  --anomaly-line: rgba(229, 142, 134, 0.38);
+  --primary: #238636;
+  --primary-hover: #29903b;
+  --primary-border: rgba(240, 246, 252, 0.1);
 
-  --line-offboard: #f2f2f2;
-  --line-reconcile: #c4c4c4;
-  --line-onboard: #c4c4c4;
-  --line-licenses: #9a9a9a;
+  --anomaly: #d29922;
+  --anomaly-fill: #bb8009;
+  --anomaly-ink: #0d1117;
+  --anomaly-wash: rgba(187, 128, 9, 0.15);
+  --anomaly-line: rgba(187, 128, 9, 0.45);
 
-  --good: #f2f2f2;
-  --bad: #e58e86;
+  --select-bg: rgba(177, 186, 196, 0.12);
+  --counter-bg: rgba(101, 108, 118, 0.2);
 
-  --shadow-pop: 0 16px 40px -8px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --line-offboard: #f0f6fc;
+  --line-reconcile: #d1d7e0;
+  --line-onboard: #d1d7e0;
+  --line-licenses: #9198a1;
+
+  --good: #3fb950;
+  --bad: #f85149;
+
+  --shadow-pop: 0 0 0 1px #3d444d, 0 16px 32px rgba(1, 4, 9, 0.85);
 }
 
 * {
@@ -106,7 +121,7 @@ body,
 body {
   margin: 0;
   font-family: var(--font);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
   color: var(--ink);
   background: var(--page);
@@ -119,7 +134,7 @@ h2,
 h3 {
   margin: 0;
   font-family: var(--font-sign);
-  font-weight: 700;
+  font-weight: 600;
   text-wrap: balance;
 }
 

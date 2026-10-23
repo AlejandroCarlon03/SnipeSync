@@ -177,6 +177,17 @@ components:
 
 ## Overview
 
+> **Superseded in part (v1.0.5): GitHub look.** Colours, type, and shape now follow GitHub's
+> Primer system; `src/index.css` is the source of truth. Primer light and dark-default neutrals;
+> blue (`#0969da` / `#4493f8`) for selection, active filters, and focus; green (`#1f883d` /
+> `#238636`) only for the primary Sync action; amber "attention" (`#bf8700` / `#bb8009`) for what
+> the sync declined, so a declined row reads as a gap to look at, not a failure. The system font
+> stack replaces Bahnschrift, corners are 6px, counts are grey pill counters, marks are round
+> dots, and the run-type control is a Primer segmented control. The layout has also been
+> simplified: no stat strip and no chart; search sits above the audit table; row details
+> open inline under the row. The layout and module notes below still apply. Where they name
+> brick red, Bahnschrift, or 2px corners, follow index.css instead.
+
 **Creative North Star: "Dense Modules"**
 
 Every answer sits on one screen. The dashboard is a packed mosaic of white modules, each ruled by its own 1px hairline, so investigating a person never means navigating away. Search runs across the top. A left rail filters by counted lists. Four counts sit in one ruled strip. The audit table takes the wide column, and ranked "Needs a look" and chart modules stack on the right. Opening a row swaps the chart for an inspector whose step strip shows how far the sync got and why it stopped.

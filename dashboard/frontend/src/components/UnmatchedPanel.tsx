@@ -114,10 +114,8 @@ export function UnmatchedPanel({
 
       {!compact && (
       <p className="panel__note">
-        These Entra accounts have <strong>no matching Snipe-IT user</strong>, so the sync had
-        nothing to offboard. Each is a gap left by the original bulk import, not a sync
-        failure. Create the Snipe-IT record (or confirm the person never needed one) to clear
-        them from this list.
+        Gaps from the original Snipe-IT import, not sync failures. Add the Snipe-IT record to
+        clear someone.
       </p>
       )}
 
@@ -127,7 +125,7 @@ export function UnmatchedPanel({
             <button
               className="unmatched__row"
               onClick={() => onPick(r.user)}
-              title={`Show ${r.user}'s records in the audit trail`}
+              title={`Show ${r.user}'s records. First seen ${relativeFromNow(r.firstSeen, now)} (${formatUtc(r.firstSeen)} UTC), last seen ${relativeFromNow(r.lastSeen, now)} (${formatUtc(r.lastSeen)} UTC).`}
             >
               {/* Ranked by attempts; people tied on attempts share a rank. */}
               <span className="rank" aria-label={`Rank ${rankOf(r)}`}>
@@ -140,12 +138,6 @@ export function UnmatchedPanel({
               <span className="unmatched__stats">
                 <span className="unmatched__attempts">
                   {r.attempts} <span className="muted">attempt{r.attempts === 1 ? "" : "s"}</span>
-                </span>
-                <span
-                  className="unmatched__seen"
-                  title={`First seen ${formatUtc(r.firstSeen)} UTC, last seen ${formatUtc(r.lastSeen)} UTC`}
-                >
-                  first {relativeFromNow(r.firstSeen, now)} · last {relativeFromNow(r.lastSeen, now)}
                 </span>
               </span>
             </button>
