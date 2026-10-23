@@ -7,7 +7,7 @@
   --top-h: 64px;
   --gap: 12px;
   --rail-w: 248px;
-  --side-w: 392px;
+  --side-w: 340px;
 }
 
 .app {
@@ -148,9 +148,38 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
   font-size: 12px;
   color: var(--ink-muted);
   white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.top__status:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.top__status:disabled {
+  cursor: progress;
+}
+
+.pulse--busy {
+  animation: pulse-busy 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-busy {
+  to {
+    opacity: 0.25;
+  }
 }
 
 .pulse {
@@ -171,12 +200,12 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
-  height: 34px;
-  padding: 0 14px;
+  height: 32px;
+  padding: 0 12px;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 500;
   white-space: nowrap;
   transition:
     background-color 0.15s,
@@ -190,23 +219,26 @@
 }
 
 .btn--primary {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--primary);
+  border-color: var(--primary-border);
+  color: #ffffff;
+  font-weight: 600;
 }
 
 .btn--primary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent) 86%, #000);
+  background: var(--primary-hover);
 }
 
 .btn--ghost {
   background: var(--surface);
-  border-color: var(--rule-strong);
+  background: var(--surface-2);
+  border-color: var(--rule);
   color: var(--ink);
 }
 
 .btn--ghost:hover:not(:disabled) {
-  border-color: var(--ink);
-  background: var(--surface-2);
+  border-color: var(--rule-strong);
+  background: var(--surface-3);
 }
 
 .icon-btn {
@@ -301,8 +333,11 @@
 /* Segmented control: the reference's tab strip, red when active. */
 .seg {
   display: inline-flex;
-  border: 1px solid var(--rule-strong);
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--rule);
   border-radius: var(--radius-sm);
+  background: var(--surface-3);
 }
 
 .seg--full {
@@ -314,28 +349,27 @@
 }
 
 .seg__btn {
-  height: 28px;
+  height: 26px;
   padding: 0 11px;
   border: 0;
-  background: var(--surface);
+  border-radius: 4px;
+  background: transparent;
   color: var(--ink-2);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.seg__btn + .seg__btn {
-  border-left: 1px solid var(--rule-strong);
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .seg__btn:hover {
-  background: var(--surface-2);
+  background: var(--select-bg);
   color: var(--ink);
 }
 
 .seg__btn--on,
 .seg__btn--on:hover {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--rule-strong);
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .spin {
@@ -523,16 +557,16 @@
 
 .facet__item--on,
 .facet__item--on:hover {
-  background: var(--accent-wash);
-  color: var(--accent-text);
-  font-weight: 700;
+  background: var(--select-bg);
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .facet__mark {
   width: 8px;
   height: 8px;
   flex: none;
-  border-radius: 1px;
+  border-radius: 50%;
 }
 
 .facet__mark--red {
@@ -555,33 +589,17 @@
   white-space: nowrap;
 }
 
-.facet__item--two .facet__name {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.3;
-}
-
-.facet__sub {
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--ink-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .facet__count {
   flex: none;
-  font-family: var(--font-sign);
-  font-size: 12.5px;
-  color: var(--ink-muted);
-}
-
-.facet__item--on .facet__count {
-  color: var(--accent-text);
-}
-
-.filters__refresh {
-  margin: 12px;
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 2em;
+  background: var(--counter-bg);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  text-align: center;
+  color: var(--ink);
 }
 
 /* ----------------------------------------------------- alerts / update */
@@ -868,7 +886,7 @@
 .row--selected,
 .row--selected:hover {
   background: var(--accent-wash);
-  outline: 1px solid var(--anomaly-line);
+  outline: 1px solid var(--accent-line);
   outline-offset: -1px;
 }
 
@@ -906,10 +924,36 @@
   white-space: normal;
 }
 
+/* In the table an action is the rail's square mark plus a word, not a boxed badge on every
+   row: a page of declined rows should read as a column of brick marks, not a wall of red. */
 .table .tag {
-  height: 22px;
-  padding: 0 7px;
-  font-size: 12.5px;
+  gap: 8px;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.table .tag::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.table .tag--red::before {
+  background: var(--anomaly-fill);
+}
+
+.table .tag--black::before {
+  background: var(--ink);
+}
+
+.table .tag--outline::before {
+  border: 1.5px solid var(--ink-muted);
 }
 
 /* The selected row's details open in place, under the row, instead of in a side drawer. */
@@ -917,7 +961,7 @@
   padding: 0;
   white-space: normal;
   background: var(--surface-2);
-  border-bottom: 1px solid var(--anomaly-line);
+  border-bottom: 1px solid var(--accent-line);
 }
 
 .row-detail .inspector {
@@ -984,35 +1028,6 @@
   to {
     background-position: -200% 0;
   }
-}
-
-/* ---------------------------------------------------------------- chart */
-
-.chart {
-  padding: 12px 12px 10px 8px;
-}
-
-.chart__empty {
-  margin: 0;
-  padding: 24px 8px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--ink-muted);
-}
-
-.chart__loading {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 8px 6px 12px;
-}
-
-.chart__loading .skeleton {
-  height: 12px;
-}
-
-.recharts-text {
-  font-family: var(--font);
 }
 
 /* ------------------------------------------------------------- unmatched */
@@ -1105,12 +1120,6 @@
   font-family: var(--font);
   font-size: 11px;
   font-weight: 400;
-}
-
-.unmatched__seen {
-  font-size: 11px;
-  color: var(--ink-muted);
-  white-space: nowrap;
 }
 
 /* ------------------------------------------------------------- inspector */
@@ -1266,8 +1275,8 @@
 
 /* The declined step is the one solid brick box on screen: the strongest mark in the strip. */
 .route__stop--stopped {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--anomaly-fill);
+  border-color: var(--anomaly-fill);
 }
 
 .route__stop--stopped .route__node {
@@ -1277,11 +1286,11 @@
   height: 14px;
   border-radius: 50%;
   background: #fff;
-  color: var(--accent);
+  color: var(--anomaly-fill);
 }
 
 .route__stop--stopped .route__label {
-  color: var(--accent-ink);
+  color: var(--anomaly-ink, var(--accent-ink));
   font-weight: 700;
 }
 
@@ -1762,7 +1771,7 @@
 @media (max-width: 1360px) {
   :root {
     --rail-w: 224px;
-    --side-w: 348px;
+    --side-w: 300px;
   }
 
   .cell-user {
@@ -1799,10 +1808,6 @@
   .facet {
     max-height: 200px;
     overflow-y: auto;
-  }
-
-  .filters__refresh {
-    justify-self: start;
   }
 
   .desk {
@@ -1845,7 +1850,7 @@
     border-right: 0;
   }
 
-  .top__status {
+  .top__status-text {
     display: none;
   }
 }
