@@ -1,0 +1,72 @@
+name: Release
+
+# Build the installer and publish it as a GitHub release whenever a v<x.y.z> tag is pushed. Every
+# installed copy offers the newest release as an update (see dashboard/SnipeSync.Dashboard/Updater.cs).
+#   git tag v1.0.3 && git push origin v1.0.3
+# installer\release.cmd still works for a release built by hand; don't run both for the same version.
+on:
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write # gh release create
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build installer and publish
+    # The installer is Inno Setup and the app is win-x64, so this needs Windows.
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the master check below needs history
+
+      # The dashboard parses the tag as a version and looks for SnipeSync-Setup-<x.y.z>.exe, so reject
+      # anything else, and only release commits that have been merged to master.
+      - name: Check tag
+        id: version
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME isn't v<major>.<minor>.<patch>."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then
+            echo "::error::$GITHUB_REF_NAME points at a commit that isn't on master. Merge first, then tag."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      # build.cmd's publish runs the host project's BuildSpa target, which needs npm.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # build.cmd looks for ISCC.exe under Program Files (x86)\Inno Setup 6, where this installs it.
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        shell: cmd
+        run: installer\build.cmd ${{ steps.version.outputs.version }}
+
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v$VERSION" "installer/output/SnipeSync-Setup-$VERSION.exe" \
+            --verify-tag --title "SnipeSync $VERSION" --generate-notes

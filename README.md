@@ -38,14 +38,27 @@ hours while it stays open). When the release is newer than what's installed, the
 checks it against GitHub's SHA-256, runs it silently (per-user, no admin prompt), and reopens the
 dashboard on the new version. Settings, the audit database and the nightly task are kept.
 
-To publish one, commit and push, then (needs the GitHub CLI signed in: `gh auth login`):
+Merging to master doesn't publish anything. To publish a release, merge, then tag the merge on master
+and push the tag:
 
 ```
-installer\release.cmd 1.0.1
-installer\release.cmd 1.0.1 "What changed, in one line"
+git tag v1.0.3
+git push origin v1.0.3
 ```
 
-That runs `build.cmd` and creates release `v1.0.1` with `SnipeSync-Setup-1.0.1.exe` attached. Keep
+The **Release** workflow (`.github/workflows/release.yml`) builds the installer on a Windows runner and
+creates release `v1.0.3` with `SnipeSync-Setup-1.0.3.exe` attached. It refuses a tag that isn't
+`v<major>.<minor>.<patch>` or that points at a commit not on master.
+
+To build and publish from your own machine instead (needs the GitHub CLI signed in: `gh auth login`):
+
+```
+installer\release.cmd 1.0.3
+installer\release.cmd 1.0.3 "What changed, in one line"
+```
+
+That runs `build.cmd`, tags the commit you're on and creates the same release. Use one path or the
+other for a given version, not both. Keep
 those names: the dashboard looks for exactly that tag and asset. Versions only go up; drafts and
 pre-releases are ignored, so a pre-release can be tried by hand first. The repo the dashboard checks
 is `SnipeSync:UpdateRepository` in `appsettings.json` (empty turns the check off).
