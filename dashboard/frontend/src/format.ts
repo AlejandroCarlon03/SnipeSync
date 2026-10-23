@@ -19,6 +19,18 @@ export function formatUtc(ts: string): string {
   return ts.replace("T", " ").slice(0, 19);
 }
 
+/** "Wed Oct 21, 2026 9:24PM" in local time, the way Snipe-IT lists dates. */
+export function formatLong(ts: string): string {
+  const d = toUtcDate(ts);
+  if (!d) return ts;
+  const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
+  const date = d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+  const time = d
+    .toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+    .replace(/\s/g, "");
+  return `${weekday} ${date} ${time}`;
+}
+
 /**
  * "42s ago" / "5m ago" / "3h ago" / "2d ago". Falsy input reads as "never".
  * `now` is injectable so a caller ticking a clock in state gets a value that

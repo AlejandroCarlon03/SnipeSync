@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ACTION_INFO } from "../actions";
 import type { AuditRecord } from "../api";
-import { formatUtc, relativeFromNow } from "../format";
-import { actionColor, actionTag, isUnmatched, routeFor, type Route, type Stop } from "../lines";
+import { formatLong, formatUtc, relativeFromNow } from "../format";
+import { actionColor, isUnmatched, routeFor, type Route, type Stop } from "../lines";
 
 interface RecordInspectorProps {
   record: AuditRecord;
@@ -10,15 +10,27 @@ interface RecordInspectorProps {
   records: AuditRecord[];
   onSelect: (id: string) => void;
   onClose: () => void;
+  /** Show every stored field and the person's whole trail, not just the summary. */
+  advanced: boolean;
+  onAdvancedChange: (advanced: boolean) => void;
   now: number;
 }
 
 /**
- * The detail view for one audit row: the route the person travelled on the sync's line,
- * where it stopped and why, every stored field, and the rest of that person's records.
+ * The detail view for one audit row, drawn under the row itself. The summary is the route
+ * the person travelled on the sync's line and why it stopped; the advanced view adds every
+ * stored field and the rest of that person's records.
  */
-export function RecordInspector({ record: r, records, onSelect, onClose, now }: RecordInspectorProps) {
-  const headingRef = useRef<HTMLHeadingElement>(null);
+export function RecordInspector({
+  record: r,
+  records,
+  onSelect,
+  onClose,
+  advanced,
+  onAdvancedChange,
+  now,
+}: RecordInspectorProps) {
+  const headingRef = useRef<HTMLDivElement>(null);
   const info = ACTION_INFO.find((a) => a.action === r.action);
   const unmatched = isUnmatched(r.action);
 
@@ -43,22 +55,31 @@ export function RecordInspector({ record: r, records, onSelect, onClose, now }: 
       style={{ "--tone": route.line.color } as CSSProperties}
     >
       <header className="inspector__head">
-        <div className="inspector__titles">
-          <span className={`tag tag--${actionTag(r.action)}`}>
-            {r.action}
-          </span>
-          <h2 id="inspector-title" ref={headingRef} tabIndex={-1}>
-            {r.user}
-          </h2>
-          <p className="inspector__when" title={`${formatUtc(r.timestampUtc)} UTC`}>
-            {relativeFromNow(r.timestampUtc, now)} · {r.dryRun ? "dry run" : "live run"}
-          </p>
+        <div
+          className="inspector__summary"
+          id="inspector-title"
+          ref={headingRef}
+          tabIndex={-1}
+          title={`${formatUtc(r.timestampUtc)} UTC`}
+        >
+          <span className="sr-only">Details for {r.user}: </span>
+          {formatLong(r.timestampUtc)} · {relativeFromNow(r.timestampUtc, now)} ·{" "}
+          {r.dryRun ? "dry run" : "live run"}
         </div>
-        <button className="icon-btn" onClick={onClose} aria-label="Close details" title="Close (Esc)">
-          <svg viewBox="0 0 14 14" width="13" height="13" aria-hidden="true">
-            <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-          </svg>
-        </button>
+        <div className="inspector__tools">
+          <button
+            className={`btn btn--ghost ${advanced ? "btn--on" : ""}`}
+            aria-pressed={advanced}
+            onClick={() => onAdvancedChange(!advanced)}
+          >
+            {advanced ? "Summary view" : "Advanced view"}
+          </button>
+          <button className="icon-btn" onClick={onClose} aria-label="Close details" title="Close (Esc)">
+            <svg viewBox="0 0 14 14" width="13" height="13" aria-hidden="true">
+              <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
       </header>
 
       <RouteDiagram key={r.id} route={route} dryRun={r.dryRun} onSelect={onSelect} />
@@ -66,7 +87,7 @@ export function RecordInspector({ record: r, records, onSelect, onClose, now }: 
       {info && (
         <div className={`verdict ${unmatched ? "verdict--anomaly" : ""}`}>
           <p className="verdict__lead">{info.description}</p>
-          {unmatched && (
+          {unmatched && advanced && (
             <p className="verdict__body">
               The sync had no Snipe-IT user to act on, so nothing was reclaimed. A name that
               matches more than one Snipe-IT user is recorded the same way: the sync never
@@ -76,7 +97,16 @@ export function RecordInspector({ record: r, records, onSelect, onClose, now }: 
         </div>
       )}
 
-      {(r.oldValue || r.newValue) && (
+      {!advanced && (r.detail || r.oldValue || r.newValue) && (
+        <dl className="facts facts--brief">
+          <Fact label="Detail" value={r.detail} wide />
+          {(r.oldValue || r.newValue) && (
+            <Fact label="Change" value={`${r.oldValue || "—"} → ${r.newValue || "—"}`} wide />
+          )}
+        </dl>
+      )}
+
+      {advanced && (r.oldValue || r.newValue) && (
         <div className="change" aria-label="Change">
           <div className="change__side">
             <span className="field-label">Old value</span>
@@ -92,6 +122,8 @@ export function RecordInspector({ record: r, records, onSelect, onClose, now }: 
         </div>
       )}
 
+      {advanced && (
+      <>
       <dl className="facts">
         <Fact label="Detail" value={r.detail} wide />
         <Fact label="Time (UTC)" value={formatUtc(r.timestampUtc)} data />
@@ -133,6 +165,8 @@ export function RecordInspector({ record: r, records, onSelect, onClose, now }: 
           ))}
         </ol>
       </div>
+      </>
+      )}
     </section>
   );
 }

@@ -15,7 +15,7 @@ export interface Sort {
 export const DEFAULT_SORT: Sort = { key: "timestampUtc", dir: "desc" };
 
 export const SORTABLE_COLUMNS: { key: SortKey; label: string }[] = [
-  { key: "timestampUtc", label: "Time (UTC)" },
+  { key: "timestampUtc", label: "Date" },
   { key: "function", label: "Function" },
   { key: "user", label: "User" },
   { key: "action", label: "Action" },

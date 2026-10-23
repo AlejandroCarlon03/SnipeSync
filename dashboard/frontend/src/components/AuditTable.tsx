@@ -1,6 +1,6 @@
-import type { KeyboardEvent } from "react";
+import { Fragment, type KeyboardEvent, type ReactNode } from "react";
 import type { AuditRecord } from "../api";
-import { formatUtc, relativeFromNow } from "../format";
+import { formatLong, formatUtc } from "../format";
 import { actionTag, isUnmatched, lineForFunction } from "../lines";
 import { SORTABLE_COLUMNS, type Sort, type SortKey } from "../lib/tableView";
 
@@ -18,7 +18,8 @@ interface AuditTableProps {
   onReset: () => void;
   /** The last load failed: the table is empty because nothing arrived, not because nothing happened. */
   failed?: boolean;
-  now: number;
+  /** The selected row's details, drawn in a full-width row right under it. */
+  renderDetail: (record: AuditRecord) => ReactNode;
 }
 
 const SKELETON_ROWS = 7;
@@ -33,7 +34,7 @@ export function AuditTable({
   onSelect,
   onReset,
   failed,
-  now,
+  renderDetail,
 }: AuditTableProps) {
   const toggleSort = (key: SortKey) => {
     // First click on a new column sorts descending — for timestamps and counts
@@ -52,10 +53,11 @@ export function AuditTable({
       onSelect(selectedId === id ? null : id);
     } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
-      const sibling =
-        e.key === "ArrowDown"
-          ? e.currentTarget.nextElementSibling
-          : e.currentTarget.previousElementSibling;
+      // Step over the open detail row: only record rows carry a data-id.
+      const step = (el: Element | null) =>
+        e.key === "ArrowDown" ? el?.nextElementSibling : el?.previousElementSibling;
+      let sibling = step(e.currentTarget);
+      while (sibling instanceof HTMLElement && !sibling.dataset.id) sibling = step(sibling);
       if (sibling instanceof HTMLElement) {
         sibling.focus();
         // Follow focus only when the inspector is already open, so arrowing isn't noisy.
@@ -118,32 +120,39 @@ export function AuditTable({
             const line = lineForFunction(r.function);
             const unmatched = isUnmatched(r.action);
             return (
-              <tr
-                key={r.id}
-                data-id={r.id}
-                className={`row ${selected ? "row--selected" : ""} ${unmatched ? "row--anomaly" : ""}`}
-                tabIndex={0}
-                aria-selected={selected}
-                aria-label={`${r.action} for ${r.user}. ${selected ? "Showing details" : "Open details"}`}
-                onClick={() => onSelect(selected ? null : r.id)}
-                onKeyDown={(e) => onRowKey(e, r.id)}
-              >
-                <td className="cell-time" title={`${formatUtc(r.timestampUtc)} UTC`}>
-                  {relativeFromNow(r.timestampUtc, now)}
-                  {/* Live is the default, so only the exception is marked. */}
-                  {r.dryRun && <span className="chip chip--dry">dry run</span>}
-                </td>
-                <td title={r.function}>
-                  <span className="line-badge">{line?.name ?? r.function}</span>
-                </td>
-                <td className="cell-user">{r.user}</td>
-                <td>
-                  <span className={`tag tag--${actionTag(r.action)}`}>
-                    {r.action}
-                  </span>
-                </td>
-                <td className="cell-detail">{r.detail ?? r.newValue ?? ""}</td>
-              </tr>
+              <Fragment key={r.id}>
+                <tr
+                  data-id={r.id}
+                  className={`row ${selected ? "row--selected" : ""} ${unmatched ? "row--anomaly" : ""}`}
+                  tabIndex={0}
+                  aria-selected={selected}
+                  aria-expanded={selected}
+                  aria-label={`${r.action} for ${r.user}. ${selected ? "Hide details" : "Show details"}`}
+                  onClick={() => onSelect(selected ? null : r.id)}
+                  onKeyDown={(e) => onRowKey(e, r.id)}
+                >
+                  <td className="cell-time" title={`${formatUtc(r.timestampUtc)} UTC`}>
+                    {formatLong(r.timestampUtc)}
+                    {/* Live is the default, so only the exception is marked. */}
+                    {r.dryRun && <span className="chip chip--dry">dry run</span>}
+                  </td>
+                  <td title={r.function}>
+                    <span className="line-badge">{line?.name ?? r.function}</span>
+                  </td>
+                  <td className="cell-user">{r.user}</td>
+                  <td>
+                    <span className={`tag tag--${actionTag(r.action)}`}>
+                      {r.action}
+                    </span>
+                  </td>
+                  <td className="cell-detail">{r.detail ?? r.newValue ?? ""}</td>
+                </tr>
+                {selected && (
+                  <tr className="row-detail">
+                    <td colSpan={5}>{renderDetail(r)}</td>
+                  </tr>
+                )}
+              </Fragment>
             );
           })}
 
