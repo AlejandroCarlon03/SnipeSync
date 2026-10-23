@@ -84,8 +84,19 @@ builder.WebHost.UseUrls(windowMode ? "http://127.0.0.1:0" : $"http://127.0.0.1:{
 
 var app = builder.Build();
 
+// index.html must be revalidated on every load: Edge otherwise reuses a cached copy after an update and
+// shows the old UI. The hashed bundles it points at change name with every build, so they cache fine.
+var spaFiles = new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        if (string.Equals(ctx.File.Name, "index.html", StringComparison.OrdinalIgnoreCase))
+            ctx.Context.Response.Headers.CacheControl = "no-cache";
+    }
+};
+
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(spaFiles);
 
 // --- Audit trail: same contract the Functions endpoints served, now from the local SQLite file -------
 app.MapGet("/api/audit", async (HttpRequest req, IAuditReader reader, CancellationToken ct) =>
@@ -233,7 +244,7 @@ app.MapPost("/api/update/install", async (HttpRequest req, Updater updater, Sync
 });
 
 // SPA fallback for client-side routing.
-app.MapFallbackToFile("index.html");
+app.MapFallbackToFile("index.html", spaFiles);
 
 await app.StartAsync();
 

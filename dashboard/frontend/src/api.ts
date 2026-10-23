@@ -201,6 +201,9 @@ export const api = {
   /** The host checks GitHub at most every few hours; this returns its last answer. */
   updateStatus: () => getJson<UpdateStatus>("/api/update"),
 
+  /** Asks GitHub now, skipping the host's cached answer. */
+  checkForUpdate: () => post<UpdateStatus>("/api/update/check", ""),
+
   /** Downloads and starts the installer; the host exits a moment after answering. */
   installUpdate: () => post<UpdateStatus>("/api/update/install", ""),
 };
