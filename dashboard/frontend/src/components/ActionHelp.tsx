@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ACTION_INFO } from "../actions";
-import { actionColor, isUnmatched } from "../lines";
+import { actionTag } from "../lines";
 
 /**
  * "What does this action mean?" reference, opened from a help icon in the top rail.
@@ -48,10 +48,7 @@ export function ActionHelp() {
             {ACTION_INFO.map((a) => (
               <div className="help__item" key={a.action}>
                 <dt>
-                  <span
-                    className={`action ${isUnmatched(a.action) ? "action--anomaly" : ""}`}
-                    style={{ "--tone": actionColor(a.action, a.source) } as CSSProperties}
-                  >
+                  <span className={`tag tag--${actionTag(a.action)}`}>
                     {a.action}
                   </span>
                 </dt>
