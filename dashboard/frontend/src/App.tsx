@@ -5,13 +5,12 @@ import { ActionHelp } from "./components/ActionHelp";
 import { ActivityChart } from "./components/ActivityChart";
 import { AuditTable } from "./components/AuditTable";
 import { RecordInspector } from "./components/RecordInspector";
-import { StatTile } from "./components/StatTile";
 import { SyncButton } from "./components/SyncButton";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { UnmatchedPanel } from "./components/UnmatchedPanel";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { formatUtc, relativeFromNow, toUtcDate } from "./format";
-import { actionTag, isUnmatched, lineForFunction, LINES } from "./lines";
+import { actionTag, lineForFunction } from "./lines";
 import { applyTableView, DEFAULT_SORT, type Sort } from "./lib/tableView";
 import { currentTheme, type Theme } from "./lib/theme";
 import { downloadWorkbook, type CellValue } from "./lib/xlsx";
@@ -24,7 +23,6 @@ const FUNCTIONS = [
 ];
 
 const TABLE_LIMIT = 500;
-const DAY_MS = 86_400_000;
 
 /** Syncs are occasional (button or nightly task), so a slow poll is plenty — this isn't a live feed. */
 const REFRESH_MS = 60_000;
@@ -41,25 +39,57 @@ function daysAgo(n: number): string {
   return isoDate(d);
 }
 
+type RangePreset = "all" | "7d" | "30d" | "90d" | "thisMonth" | "lastMonth" | "custom";
+
+const RANGE_PRESETS: [RangePreset, string][] = [
+  ["all", "All time"],
+  ["7d", "Last 7 days"],
+  ["30d", "Last 30 days"],
+  ["90d", "Last 90 days"],
+  ["thisMonth", "This month"],
+  ["lastMonth", "Last month"],
+  ["custom", "Custom range"],
+];
+
+/**
+ * The from/to a range resolves to. Presets are worked out at load time rather than when
+ * picked, so a dashboard left open overnight still means "the last 7 days" in the morning.
+ */
+function resolveRange(f: Filters): { from: string; to: string } {
+  const today = new Date();
+  const y = today.getUTCFullYear();
+  const m = today.getUTCMonth();
+  switch (f.range) {
+    case "all":
+      return { from: "", to: "" };
+    case "7d":
+      return { from: daysAgo(7), to: isoDate(today) };
+    case "30d":
+      return { from: daysAgo(30), to: isoDate(today) };
+    case "90d":
+      return { from: daysAgo(90), to: isoDate(today) };
+    case "thisMonth":
+      return { from: isoDate(new Date(Date.UTC(y, m, 1))), to: isoDate(today) };
+    case "lastMonth":
+      return { from: isoDate(new Date(Date.UTC(y, m - 1, 1))), to: isoDate(new Date(Date.UTC(y, m, 0))) };
+    case "custom":
+      return { from: f.from, to: f.to };
+  }
+}
+
 /** One bucket's count from a stats grouping: 0 when the bucket is absent, "–" when nothing loaded. */
 function countOf(buckets: { key: string | null; count: number }[] | undefined, key: string): number | string {
   if (!buckets) return "–";
   return buckets.find((b) => b.key === key)?.count ?? 0;
 }
 
-/** Sum the counts of a set of actions out of a stats payload. */
-function sumActions(stats: AuditStats | null, actions: string[]): number {
-  if (!stats) return 0;
-  return stats.byAction
-    .filter((b) => b.key !== null && actions.includes(b.key))
-    .reduce((acc, b) => acc + b.count, 0);
-}
-
 function defaultFilters(): Filters {
-  return { from: daysAgo(30), to: isoDate(new Date()), action: "all", func: "all", dryRun: "all" };
+  return { range: "30d", from: daysAgo(30), to: isoDate(new Date()), action: "all", func: "all", dryRun: "all" };
 }
 
 interface Filters {
+  range: RangePreset;
+  /** Only read for a custom range. */
   from: string;
   to: string;
   action: string; // "all" or an action name
@@ -71,7 +101,6 @@ export function App() {
   const [filters, setFilters] = useState<Filters>(defaultFilters);
 
   const [stats, setStats] = useState<AuditStats | null>(null);
-  const [prevStats, setPrevStats] = useState<AuditStats | null>(null);
   const [records, setRecords] = useState<AuditRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +110,8 @@ export function App() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Remembered across rows: whoever wants the full record usually wants it for the next one too.
+  const [advanced, setAdvanced] = useState(false);
 
   const [theme, setTheme] = useState<Theme>(currentTheme);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -98,34 +129,17 @@ export function App() {
       if (!silent) setLoading(true);
       setError(null);
 
+      const { from, to } = resolveRange(filters);
       const common = {
-        from: filters.from || undefined,
-        to: filters.to || undefined,
+        from: from || undefined,
+        to: to || undefined,
         function: filters.func === "all" ? undefined : filters.func,
         dryRun: filters.dryRun === "all" ? undefined : filters.dryRun === "true",
       };
 
-      // Previous period of equal length, immediately before [from, to] — powers the
-      // period-over-period deltas on the tiles. Only computed when both ends are set.
-      const hasRange = Boolean(filters.from && filters.to);
-      let prevPromise: Promise<AuditStats | null> = Promise.resolve(null);
-      if (hasRange) {
-        const from = new Date(filters.from);
-        const to = new Date(filters.to);
-        const span = to.getTime() - from.getTime();
-        const prevTo = new Date(from.getTime() - DAY_MS);
-        const prevFrom = new Date(prevTo.getTime() - span);
-        prevPromise = api.stats({
-          ...common,
-          from: isoDate(prevFrom),
-          to: isoDate(prevTo),
-        });
-      }
-
       try {
-        const [s, p, r] = await Promise.all([
+        const [s, r] = await Promise.all([
           api.stats(common),
-          prevPromise,
           api.records({
             from: common.from,
             to: common.to,
@@ -135,7 +149,6 @@ export function App() {
           }),
         ]);
         setStats(s);
-        setPrevStats(p);
         // /api/audit has no dryRun filter, so honor it client-side for the table.
         setRecords(
           filters.dryRun === "all"
@@ -146,7 +159,6 @@ export function App() {
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
         setStats(null);
-        setPrevStats(null);
         setRecords([]);
       } finally {
         inFlight.current = false;
@@ -176,54 +188,6 @@ export function App() {
   const visible = useMemo(
     () => applyTableView(records, search, sort),
     [records, search, sort],
-  );
-
-  const unmatchedPeople = useMemo(
-    () =>
-      records.length === 0
-        ? null
-        : new Set(records.filter((r) => isUnmatched(r.action)).map((r) => r.user)).size,
-    [records],
-  );
-
-  const tiles = useMemo(
-    () => [
-      {
-        label: "Total decisions",
-        value: stats?.total ?? 0,
-        previous: prevStats?.total ?? 0,
-        tone: "var(--ink-2)",
-        hint: "all audited actions",
-      },
-      {
-        label: "Offboarded",
-        value: sumActions(stats, ["MarkedFormerEmployee"]),
-        previous: sumActions(prevStats, ["MarkedFormerEmployee"]),
-        tone: LINES.offboard.color,
-        hint: "flagged former employee",
-      },
-      {
-        label: "Onboarded",
-        value: sumActions(stats, ["Created", "Rehired"]),
-        previous: sumActions(prevStats, ["Created", "Rehired"]),
-        tone: LINES.onboard.color,
-        hint: "created or rehired",
-      },
-      {
-        label: "Unmatched",
-        value: sumActions(stats, ["SkippedNoMatch", "UnmatchedAfterReconciliation"]),
-        previous: sumActions(prevStats, ["SkippedNoMatch", "UnmatchedAfterReconciliation"]),
-        tone: "var(--anomaly)",
-        invertDelta: true, // fewer unmatched users is the good outcome
-        anomaly: true,
-        // The value counts decisions (one person can miss on both passes); say how many people.
-        hint:
-          unmatchedPeople === null
-            ? "no-match decisions"
-            : `no-match decisions · ${unmatchedPeople} ${unmatchedPeople === 1 ? "person" : "people"}`,
-      },
-    ],
-    [stats, prevStats, unmatchedPeople],
   );
 
   const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }));
@@ -264,9 +228,6 @@ export function App() {
     else setFilters(defaultFilters());
   };
 
-  const firstLoad = loading && !stats;
-  // When the whole prior period was empty, say so once rather than on every tile.
-  const noBaseline = Boolean(prevStats && prevStats.total === 0 && stats && stats.total > 0);
   const rowCount = search ? visible.length : records.length;
 
   /** Export the rows currently on screen — search and sort included. */
@@ -282,7 +243,8 @@ export function App() {
       r.dryRun ? "dry-run" : "live",
     ]);
 
-    const range = [filters.from, filters.to].filter(Boolean).join("_to_") || "all";
+    const { from, to } = resolveRange(filters);
+    const range = [from, to].filter(Boolean).join("_to_") || "all";
     downloadWorkbook(
       `snipesync-audit-${range}.xlsx`,
       [
@@ -298,7 +260,7 @@ export function App() {
       rows,
       "Audit records",
     );
-  }, [visible, filters.from, filters.to]);
+  }, [visible, filters]);
 
   return (
     <div className="app">
@@ -311,21 +273,6 @@ export function App() {
               <span className="brand__sub">Audit trail</span>
             </div>
           </div>
-
-          {/* The investigation starts here, so search owns the top bar. */}
-          <label className="search search--top">
-            <svg viewBox="0 0 14 14" width="15" height="15" aria-hidden="true">
-              <circle cx="6" cy="6" r="4.2" fill="none" stroke="currentColor" strokeWidth="1.5" />
-              <path d="m9.2 9.2 3.1 3.1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search a person, action, email, detail…"
-              aria-label="Search audit records"
-            />
-          </label>
 
           <div className="top__tools">
             <span
@@ -355,16 +302,28 @@ export function App() {
         <aside className="filters" aria-label="Filters">
           <section className="filter-group">
             <h2 className="filter-group__title">Date range</h2>
-            <div className="filter-dates">
-              <label className="field">
-                <span className="field-label">From</span>
-                <input type="date" value={filters.from} onChange={(e) => set({ from: e.target.value })} />
-              </label>
-              <label className="field">
-                <span className="field-label">To</span>
-                <input type="date" value={filters.to} onChange={(e) => set({ to: e.target.value })} />
-              </label>
-            </div>
+            <label className="field">
+              <span className="sr-only">Date range</span>
+              <select value={filters.range} onChange={(e) => set({ range: e.target.value as RangePreset })}>
+                {RANGE_PRESETS.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {filters.range === "custom" && (
+              <div className="filter-dates">
+                <label className="field">
+                  <span className="field-label">From</span>
+                  <input type="date" value={filters.from} onChange={(e) => set({ from: e.target.value })} />
+                </label>
+                <label className="field">
+                  <span className="field-label">To</span>
+                  <input type="date" value={filters.to} onChange={(e) => set({ to: e.target.value })} />
+                </label>
+              </div>
+            )}
           </section>
 
           <section className="filter-group">
@@ -492,28 +451,22 @@ export function App() {
           </div>
         )}
 
-        <section className="board" aria-label="This range against the previous period">
-          {noBaseline && (
-            <p className="board__note">No decisions in the prior period, so there is nothing to compare against.</p>
-          )}
-          {tiles.map((t) => (
-            <StatTile
-              key={t.label}
-              label={t.label}
-              value={t.value}
-              previous={t.previous}
-              tone={t.tone}
-              invertDelta={t.invertDelta}
-              anomaly={t.anomaly}
-              pending={firstLoad && !error}
-              unknown={Boolean(error) && !stats}
-              hideNoBaseline={noBaseline}
-              hint={t.hint}
-            />
-          ))}
-        </section>
+        {/* The investigation starts here, so search sits right above the trail. */}
+        <label className="search search--main">
+          <svg viewBox="0 0 14 14" width="15" height="15" aria-hidden="true">
+            <circle cx="6" cy="6" r="4.2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+            <path d="m9.2 9.2 3.1 3.1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search a person, action, email, detail…"
+            aria-label="Search audit records"
+          />
+        </label>
 
-        <div className={`desk ${selected ? "desk--inspecting" : ""}`}>
+        <div className="desk">
           <section className="panel ledger" aria-label="Audit records">
             <div className="ledger__head">
               <h2>Audit trail</h2>
@@ -558,29 +511,23 @@ export function App() {
               onSelect={setSelectedId}
               onReset={resetView}
               failed={Boolean(error)}
-              now={now}
-            />
-          </section>
-
-          <aside className="side" aria-label={selected ? "Record details" : "Overview"}>
-            {selected ? (
-              <>
-                <div className="side__scrim" aria-hidden="true" onClick={closeInspector} />
+              renderDetail={(r) => (
                 <RecordInspector
-                  record={selected}
+                  record={r}
                   records={records}
                   onSelect={setSelectedId}
                   onClose={closeInspector}
+                  advanced={advanced}
+                  onAdvancedChange={setAdvanced}
                   now={now}
                 />
-                <UnmatchedPanel records={records} onPick={setSearch} now={now} compact />
-              </>
-            ) : (
-              <>
-                <UnmatchedPanel records={records} onPick={setSearch} now={now} failed={Boolean(error) || (loading && !stats)} />
-                <ActivityChart stats={stats} theme={theme} loading={loading} />
-              </>
-            )}
+              )}
+            />
+          </section>
+
+          <aside className="side" aria-label="Overview">
+            <UnmatchedPanel records={records} onPick={setSearch} now={now} failed={Boolean(error) || (loading && !stats)} />
+            <ActivityChart stats={stats} theme={theme} loading={loading} />
           </aside>
         </div>
       </main>
