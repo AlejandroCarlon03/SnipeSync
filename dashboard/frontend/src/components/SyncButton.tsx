@@ -1,44 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import { api, type SyncRun, type SyncStatus, type SyncStep, type SyncStepCounts } from "../api";
+import { api, type SyncStatus, type SyncStep } from "../api";
 import { relativeFromNow } from "../format";
+import { OUTCOME_LABELS, STEP_LABELS, describeStep } from "../lib/syncText";
 
 /** Fast enough that the step list visibly advances; a run takes minutes, not seconds. */
 const POLL_MS = 2_000;
-
-const STEP_LABELS: Record<SyncStep["step"], string> = {
-  offboard: "Offboard former employees",
-  reconcile: "Retry unmatched users",
-  onboard: "Onboard new hires and rehires",
-  licenses: "Check out M365 license seats",
-};
-
-const OUTCOME_LABELS: Record<SyncRun["outcome"], string> = {
-  running: "Running",
-  succeeded: "Finished",
-  completedWithErrors: "Finished with errors",
-  failed: "Did not run",
-};
-
-/** "2 offboarded · 3 assets in" — only the counters that moved, so a quiet step reads "no changes". */
-function describeCounts(c: SyncStepCounts | null): string {
-  if (!c) return "";
-  const parts: [number, string, string][] = [
-    [c.offboarded, "offboarded", "offboarded"],
-    [c.onboarded, "created", "created"],
-    [c.rehired, "rehired", "rehired"],
-    [c.assetsCheckedIn, "asset in", "assets in"],
-    [c.licensesReclaimed, "seat reclaimed", "seats reclaimed"],
-    [c.accessoriesReclaimed, "accessory in", "accessories in"],
-    [c.licensesCheckedOut, "seat checked out", "seats checked out"],
-    [c.unmatched.length, "unmatched", "unmatched"],
-    [c.failed, "failed", "failed"],
-  ];
-  const moved = parts
-    .filter(([n]) => n > 0)
-    .map(([n, one, many]) => `${n} ${n === 1 ? one : many}`);
-  const checked = c.processed > 0 ? `${c.processed} checked` : "";
-  return [checked, ...(moved.length ? moved : ["no changes"])].filter(Boolean).join(" · ");
-}
 
 /**
  * Manual sync: a topbar button that opens a panel to start a full sync (optionally as a dry
@@ -213,7 +179,7 @@ export function SyncButton({ onFinished }: { onFinished: () => void }) {
                       <span className="sync__step-label">{STEP_LABELS[s.step]}</span>
                       {run && (s.error || s.counts || (s.state === "skipped" && run.outcome !== "failed")) && (
                         <span className="sync__step-meta">
-                          {s.error ?? (s.state === "skipped" ? "skipped (turned off in settings)" : describeCounts(s.counts))}
+                          {describeStep(s, run.outcome === "failed")}
                         </span>
                       )}
                     </div>

@@ -1,6 +1,7 @@
 import { Fragment, type KeyboardEvent, type ReactNode } from "react";
 import type { AuditRecord } from "../api";
 import { formatLong, formatUtc } from "../format";
+import { looksLikeEmail, type ApprovalCheck } from "../lib/approvals";
 import { actionTag, isUnmatched, lineForFunction } from "../lines";
 import { SORTABLE_COLUMNS, type Sort, type SortKey } from "../lib/tableView";
 
@@ -18,6 +19,8 @@ interface AuditTableProps {
   onReset: () => void;
   /** The last load failed: the table is empty because nothing arrived, not because nothing happened. */
   failed?: boolean;
+  /** Declined rows for an approved account are drawn quietly instead of in amber. */
+  isApproved?: ApprovalCheck;
   /** The selected row's details, drawn in a full-width row right under it. */
   renderDetail: (record: AuditRecord) => ReactNode;
 }
@@ -34,6 +37,7 @@ export function AuditTable({
   onSelect,
   onReset,
   failed,
+  isApproved,
   renderDetail,
 }: AuditTableProps) {
   const toggleSort = (key: SortKey) => {
@@ -119,6 +123,8 @@ export function AuditTable({
             const selected = selectedId === r.id;
             const line = lineForFunction(r.function);
             const unmatched = isUnmatched(r.action);
+            const approved =
+              unmatched && (isApproved?.(r.user, looksLikeEmail(r.detail) ? r.detail : null) ?? false);
             return (
               <Fragment key={r.id}>
                 <tr
@@ -141,7 +147,10 @@ export function AuditTable({
                   </td>
                   <td className="cell-user">{r.user}</td>
                   <td>
-                    <span className={`tag tag--${actionTag(r.action)}`}>
+                    <span
+                      className={`tag ${approved ? "tag--approved" : `tag--${actionTag(r.action)}`}`}
+                      title={approved ? "Approved account: no Snipe-IT record needed" : undefined}
+                    >
                       {r.action}
                     </span>
                   </td>

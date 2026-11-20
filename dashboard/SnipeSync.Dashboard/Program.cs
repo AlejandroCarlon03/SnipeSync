@@ -77,6 +77,8 @@ builder.Services.Configure<DashboardOptions>(builder.Configuration.GetSection(Da
 builder.Services.AddSingleton(new SqliteAuditDb(LocalSettings.AuditDbPath));
 builder.Services.AddSingleton<IAuditReader, SqliteAuditReader>();
 builder.Services.AddSingleton<SyncRunner>();
+builder.Services.AddSingleton<RunHistory>();
+builder.Services.AddSingleton<ApprovalStore>();
 builder.Services.AddSingleton<Updater>();
 
 // Loopback only; the dashboard is a local single-user tool. The Photino window gets an OS-assigned port.
@@ -150,6 +152,52 @@ app.MapGet("/api/audit/stats", async (HttpRequest req, IAuditReader reader, Canc
     {
         return Results.Problem(title: "Audit stats query failed.", detail: e.InnerException?.Message);
     }
+});
+
+// --- Run history: past syncs, each with only what it changed -----------------------------------------
+app.MapGet("/api/runs", async (HttpRequest req, RunHistory history, ApprovalStore approvals, CancellationToken ct) =>
+{
+    var q = req.Query;
+    if (!AuditQueryParsing.TryParseBool(q["dryRun"], out var dryRun))
+        return Results.BadRequest("Invalid 'dryRun'; use true or false.");
+    if (!AuditQueryParsing.TryParseDate(q["from"], endOfDayIfDateOnly: false, out var from))
+        return Results.BadRequest("Invalid 'from' date; use ISO 8601 (e.g. 2026-07-01).");
+    if (!AuditQueryParsing.TryParseDate(q["to"], endOfDayIfDateOnly: true, out var to))
+        return Results.BadRequest("Invalid 'to' date; use ISO 8601 (e.g. 2026-07-31).");
+    var limit = int.TryParse(q["limit"], out var l) ? l : 60;
+
+    try
+    {
+        var matcher = new ApprovalMatcher(await approvals.ListAsync(ct));
+        return Results.Ok(await history.ListAsync(from, to, dryRun, limit, matcher, ct));
+    }
+    catch (Microsoft.Data.Sqlite.SqliteException e)
+    {
+        return Results.Problem(title: "Run history query failed.", detail: e.Message);
+    }
+});
+
+// --- Approvals: accounts signed off as fine without a Snipe-IT record ------------------------------
+app.MapGet("/api/approvals", async (ApprovalStore approvals, CancellationToken ct) =>
+    Results.Ok(await approvals.ListAsync(ct)));
+
+app.MapPost("/api/approvals", async (HttpRequest req, ApprovalRequest? body, ApprovalStore approvals, CancellationToken ct) =>
+{
+    if (!req.Headers.ContainsKey(SyncHeader))
+        return Results.StatusCode(StatusCodes.Status403Forbidden);
+    if (string.IsNullOrWhiteSpace(body?.User))
+        return Results.BadRequest(new { error = "Say which account to approve." });
+
+    return Results.Ok(await approvals.AddAsync(body.User, body.Email, body.Note, ct));
+});
+
+app.MapDelete("/api/approvals/{key}", async (HttpRequest req, string key, ApprovalStore approvals, CancellationToken ct) =>
+{
+    if (!req.Headers.ContainsKey(SyncHeader))
+        return Results.StatusCode(StatusCodes.Status403Forbidden);
+    return await approvals.RemoveAsync(key, ct)
+        ? Results.NoContent()
+        : Results.NotFound(new { error = "That account isn't approved." });
 });
 
 // --- Manual sync --------------------------------------------------------------------------------------

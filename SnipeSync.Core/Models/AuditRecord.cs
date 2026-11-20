@@ -31,6 +31,14 @@ public record AuditRecord
     [JsonPropertyName("dryRun")] public bool DryRun { get; init; }
     [JsonPropertyName("timestampUtc")] public DateTimeOffset TimestampUtc { get; init; }
 
+    /// <summary>
+    /// The sync run that wrote this row (SQLite backend only). Null for rows from before runs were
+    /// tracked, and for the Cosmos/Table backends, which don't store it.
+    /// </summary>
+    [JsonPropertyName("runId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RunId { get; init; }
+
     /// <summary>Builds a record for <paramref name="now"/>, deriving the month-bucket partition key.</summary>
     public static AuditRecord Create(
         string function, string user, string action,

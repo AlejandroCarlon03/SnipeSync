@@ -72,6 +72,17 @@ public sealed class SyncRunner(ILogger<SyncRunner> logger)
         }
         finally
         {
+            // Keep the run for the dashboard's run history. Best effort, like audit writes: losing
+            // the history row must never turn a finished sync into a failed one.
+            try
+            {
+                await RunHistory.SaveAsync(new SqliteAuditDb(LocalSettings.AuditDbPath), state);
+            }
+            catch (Exception e)
+            {
+                logger.LogWarning("Could not save sync {RunId} to the run history: {Error}", state.RunId, e.Message);
+            }
+
             lock (_gate)
             {
                 _last = state;

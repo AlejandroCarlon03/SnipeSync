@@ -4,6 +4,8 @@
  *  - AuditStats       -> SnipeSync.Core/Models/AuditStats.cs    (GET /api/audit/stats)
  *  - SyncStatus       -> SnipeSync.Dashboard/SyncRunner.cs      (GET /api/sync/status)
  *  - UpdateStatus     -> SnipeSync.Dashboard/Updater.cs         (GET /api/update)
+ *  - RunEntry         -> SnipeSync.Dashboard/RunHistory.cs      (GET /api/runs)
+ *  - Approval         -> SnipeSync.Dashboard/Approvals.cs       (GET /api/approvals)
  * Keep these in step with those types.
  */
 import { config } from "./config";
@@ -20,6 +22,8 @@ export interface AuditRecord {
   detail: string | null;
   dryRun: boolean;
   timestampUtc: string;
+  /** The sync run that wrote the row; absent for rows from before runs were tracked. */
+  runId?: string | null;
 }
 
 /** One GROUP BY bucket from the stats endpoint. */
@@ -108,6 +112,44 @@ export interface UpdateStatus {
   checkedAt: string | null;
 }
 
+/** Someone the sync declined in a run, folded to one line however many rows they have. */
+export interface DeclinedPerson {
+  user: string;
+  email: string | null;
+  actions: string[];
+  functions: string[];
+  /** Their last row in the run, for the inline details. */
+  record: AuditRecord;
+  /** Signed off in the app as fine without a Snipe-IT record. */
+  approved: boolean;
+}
+
+/** One past sync run from GET /api/runs, carrying only what it changed. */
+export interface RunEntry {
+  runId: string;
+  /** False for runs from before run history was kept: their steps and outcome are unknown. */
+  recorded: boolean;
+  startedAt: string;
+  finishedAt: string | null;
+  dryRun: boolean;
+  outcome: SyncOutcome | null;
+  error: string | null;
+  steps: SyncStep[] | null;
+  rowCount: number;
+  /** Oldest first. */
+  changes: AuditRecord[];
+  declined: DeclinedPerson[];
+}
+
+/** An account signed off as fine without a Snipe-IT record. */
+export interface Approval {
+  key: string;
+  user: string;
+  email: string | null;
+  note: string | null;
+  approvedAt: string;
+}
+
 export interface AuditFilters {
   from?: string;
   to?: string;
@@ -160,6 +202,23 @@ function post<T>(path: string, body: string, contentType = "application/json"): 
   });
 }
 
+/** DELETE with the same header as post(); the host answers 204 with no body. */
+async function del(path: string): Promise<void> {
+  const res = await fetch(`${config.baseUrl}${path}`, {
+    method: "DELETE",
+    headers: { "X-SnipeSync": "1" },
+  });
+  if (!res.ok) {
+    let message = `${path} failed: ${res.status} ${res.statusText}`;
+    try {
+      message = ((await res.json()) as { error?: string }).error ?? message;
+    } catch {
+      // Not JSON; keep the status line.
+    }
+    throw new Error(message);
+  }
+}
+
 const asString = (v?: boolean) => (v === undefined ? undefined : String(v));
 
 export const api = {
@@ -188,6 +247,24 @@ export const api = {
         limit: f.limit ? String(f.limit) : undefined,
       })}`,
     ),
+
+  /** Past sync runs, newest first, each with only what it changed. */
+  runs: (f: AuditFilters = {}) =>
+    getJson<RunEntry[]>(
+      `/api/runs${buildQuery({
+        from: f.from,
+        to: f.to,
+        dryRun: asString(f.dryRun),
+        limit: f.limit ? String(f.limit) : undefined,
+      })}`,
+    ),
+
+  approvals: () => getJson<Approval[]>("/api/approvals"),
+
+  approve: (user: string, email: string | null, note?: string) =>
+    post<Approval>("/api/approvals", JSON.stringify({ user, email, note })),
+
+  unapprove: (key: string) => del(`/api/approvals/${encodeURIComponent(key)}`),
 
   syncStatus: () => getJson<SyncStatus>("/api/sync/status"),
 
