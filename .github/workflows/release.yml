@@ -1,11 +1,23 @@
 name: Release
 
-# Build the installer and publish it as a GitHub release whenever a v<x.y.z> tag is pushed. Every
-# installed copy offers the newest release as an update (see dashboard/SnipeSync.Dashboard/Updater.cs).
-#   git tag v1.0.3 && git push origin v1.0.3
+# Build the installer and publish it as a GitHub release. Every installed copy checks for the newest
+# release each time it's opened and offers it as an update (see dashboard/SnipeSync.Dashboard/Updater.cs).
+#
+# Two ways a release happens:
+#   - Automatically: every push to master that touches the app (a merged PR) releases the next patch
+#     version, so a change always reaches installed copies without anyone remembering to tag it.
+#   - By hand, for a minor or major bump:  git tag v1.1.0 && git push origin v1.1.0
 # installer\release.cmd still works for a release built by hand; don't run both for the same version.
 on:
   push:
+    branches: [ master ]
+    # Docs, CI and editor files don't change what users run, so they don't ship a new version.
+    paths:
+      - 'SnipeSync.Core/**'
+      - 'SnipeITSyncFormerEmployees/**'
+      - 'dashboard/**'
+      - 'installer/**'
+      - '*.sln'
     tags: [ 'v*' ]
 
 permissions:
@@ -27,11 +39,26 @@ jobs:
           fetch-depth: 0 # the master check below needs history
 
       # The dashboard parses the tag as a version and looks for SnipeSync-Setup-<x.y.z>.exe, so reject
-      # anything else, and only release commits that have been merged to master.
-      - name: Check tag
+      # anything else, and only release commits that have been merged to master. A push to master gets
+      # the next patch after the newest v<x.y.z> tag.
+      - name: Pick version
         id: version
         shell: bash
         run: |
+          if [[ "$GITHUB_REF_TYPE" == "branch" ]]; then
+            if git tag --points-at "$GITHUB_SHA" | grep -q '^v'; then
+              echo "This commit is already released; nothing to do."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            latest=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)
+            latest="${latest#v}"
+            if [[ -z "$latest" ]]; then latest="0.0.0"; fi
+            IFS=. read -r major minor patch <<< "$latest"
+            echo "version=$major.$minor.$((patch + 1))" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           version="${GITHUB_REF_NAME#v}"
           if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::Tag $GITHUB_REF_NAME isn't v<major>.<minor>.<patch>."
@@ -44,29 +71,36 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Setup .NET 9
+        if: steps.version.outputs.skip != 'true'
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
 
       # build.cmd's publish runs the host project's BuildSpa target, which needs npm.
       - name: Setup Node
+        if: steps.version.outputs.skip != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
       # build.cmd looks for ISCC.exe under Program Files (x86)\Inno Setup 6, where this installs it.
       - name: Install Inno Setup
+        if: steps.version.outputs.skip != 'true'
         run: choco install innosetup --no-progress -y
 
       - name: Build installer
+        if: steps.version.outputs.skip != 'true'
         shell: cmd
         run: installer\build.cmd ${{ steps.version.outputs.version }}
 
       - name: Publish release
+        if: steps.version.outputs.skip != 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
+          # A tag push already has its tag; a master push creates it here, on the commit just built.
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then target=(--verify-tag); else target=(--target "$GITHUB_SHA"); fi
           gh release create "v$VERSION" "installer/output/SnipeSync-Setup-$VERSION.exe" \
-            --verify-tag --title "SnipeSync $VERSION" --generate-notes
+            "${target[@]}" --title "SnipeSync $VERSION" --generate-notes
