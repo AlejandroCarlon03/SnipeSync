@@ -177,6 +177,17 @@ components:
 
 ## Overview
 
+> **Superseded (after v1.0.5): "Midnight Slate".** `src/index.css` is the source of truth. Dark is a
+> deep blue-slate ground (#0f141c, modules #151b25) with off-white text; light is a cool grey
+> ground with white modules. One muted teal (#2c6e74, text #7cc4c0 in dark) is the Sync button,
+> selection, active filter and focus. Periwinkle tags mark what the sync changed; muted amber
+> washes mark what it declined; approved accounts are a quiet grey tag. Cards have 14px corners,
+> faint 1px borders and no shadow. Layout: search in the top bar, a box-less filter rail, an
+> overview row (Last sync, Needs a look), then the audit trail with a "By run / Every row"
+> switch. By run is the run history: each run shows its steps, only what it changed, and who it
+> declined, one line per person, with approved accounts folded away. The notes below describe
+> earlier looks and hold only where index.css and app.css don't say otherwise.
+
 > **Superseded in part (v1.0.5): GitHub look.** Colours, type, and shape now follow GitHub's
 > Primer system; `src/index.css` is the source of truth. Primer light and dark-default neutrals;
 > blue (`#0969da` / `#4493f8`) for selection, active filters, and focus; green (`#1f883d` /

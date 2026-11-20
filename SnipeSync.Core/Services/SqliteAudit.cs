@@ -58,13 +58,42 @@ public sealed class SqliteAuditDb
             );
             CREATE INDEX IF NOT EXISTS ix_audit_time ON audit (timestampUtc);
             CREATE INDEX IF NOT EXISTS ix_audit_run ON audit (runId);
+
+            -- One row per sync run (the dashboard's Sync button or the nightly --sync task), so a past
+            -- run's steps and outcome survive a restart. Audit rows point back here by runId.
+            CREATE TABLE IF NOT EXISTS runs (
+                runId      TEXT PRIMARY KEY,
+                startedAt  TEXT NOT NULL,
+                finishedAt TEXT NULL,
+                dryRun     INTEGER NOT NULL,
+                outcome    TEXT NOT NULL,
+                error      TEXT NULL,
+                steps      TEXT NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_runs_started ON runs (startedAt);
+
+            -- People the maintainer has signed off as fine without a Snipe-IT record (shared mailboxes
+            -- and the like). The sync still audits them; the dashboard stops flagging them.
+            CREATE TABLE IF NOT EXISTS approvals (
+                key        TEXT PRIMARY KEY,
+                user       TEXT NOT NULL,
+                email      TEXT NULL,
+                note       TEXT NULL,
+                approvedAt TEXT NOT NULL
+            );
+
+            -- One-time markers (seeds, migrations), so undoing a seeded row in the app sticks.
+            CREATE TABLE IF NOT EXISTS meta (
+                key   TEXT PRIMARY KEY,
+                value TEXT NULL
+            );
             """;
         cmd.ExecuteNonQuery();
     }
 
     public string Path { get; }
 
-    internal SqliteConnection Open()
+    public SqliteConnection Open()
     {
         var conn = new SqliteConnection(_connectionString);
         conn.Open();
@@ -107,10 +136,10 @@ public sealed class SqliteAuditDb
         return inserted;
     }
 
-    internal static string FormatTimestamp(DateTimeOffset value) =>
+    public static string FormatTimestamp(DateTimeOffset value) =>
         value.UtcDateTime.ToString(TimestampFormat, CultureInfo.InvariantCulture);
 
-    internal static DateTimeOffset ParseTimestamp(string value) =>
+    public static DateTimeOffset ParseTimestamp(string value) =>
         DateTimeOffset.ParseExact(value, TimestampFormat, CultureInfo.InvariantCulture,
             DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
 }
@@ -152,7 +181,7 @@ public class SqliteAuditReader(SqliteAuditDb db) : IAuditReader
             await using var cmd = conn.CreateCommand();
             var where = BuildWhere(cmd, filter.User, filter.Action, filter.Function, null, filter.From, filter.To);
             cmd.CommandText = $"""
-                SELECT id, ym, function, user, action, oldValue, newValue, detail, dryRun, timestampUtc
+                SELECT id, ym, function, user, action, oldValue, newValue, detail, dryRun, timestampUtc, runId
                 FROM audit {where} ORDER BY timestampUtc DESC LIMIT $limit
                 """;
             cmd.Parameters.AddWithValue("$limit", filter.Limit);
@@ -172,7 +201,8 @@ public class SqliteAuditReader(SqliteAuditDb db) : IAuditReader
                     NewValue = reader.IsDBNull(6) ? null : reader.GetString(6),
                     Detail = reader.IsDBNull(7) ? null : reader.GetString(7),
                     DryRun = reader.GetInt64(8) != 0,
-                    TimestampUtc = SqliteAuditDb.ParseTimestamp(reader.GetString(9))
+                    TimestampUtc = SqliteAuditDb.ParseTimestamp(reader.GetString(9)),
+                    RunId = reader.IsDBNull(10) ? null : reader.GetString(10)
                 });
             }
             return list;

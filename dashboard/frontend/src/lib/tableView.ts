@@ -31,6 +31,12 @@ const SEARCHABLE: (keyof AuditRecord)[] = [
   "newValue",
 ];
 
+/** Whether a row contains the search text in any searchable field. An empty search matches all. */
+export function matchesSearch(record: AuditRecord, search: string): boolean {
+  const needle = search.trim().toLowerCase();
+  return !needle || SEARCHABLE.some((f) => String(record[f] ?? "").toLowerCase().includes(needle));
+}
+
 export function applyTableView(
   records: AuditRecord[],
   search: string,

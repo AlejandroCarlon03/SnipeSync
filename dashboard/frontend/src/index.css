@@ -1,63 +1,70 @@
-/* Design tokens: GitHub (Primer) look.
-   Colours are Primer's light and dark-default values. Blue is for what you select or focus,
-   green is the one primary action (Sync), and amber ("attention") marks what the sync
-   declined: a gap to look at, not a failure. Everything else is Primer's neutral ramp. */
+/* Design tokens: "Midnight Slate".
+   A calm, low-glare look. Dark is a deep blue-slate ground with off-white (never pure white)
+   text; light is a cool grey ground with white modules. One muted teal does the brand work:
+   the Sync button, selection, the active filter and focus. Periwinkle marks what the sync
+   changed, muted amber what it declined. Borders are faint and few. */
 
 :root {
   color-scheme: light;
 
-  --page: #ffffff;
+  --page: #f3f5f8;
   --surface: #ffffff;
-  --surface-2: #f6f8fa;
-  --surface-3: #eff2f5;
+  --surface-2: #eef1f5;
+  --surface-3: #e6eaf0;
 
-  --ink: #1f2328;
-  --ink-2: #424a53;
-  --ink-muted: #59636e;
+  --ink: #1d2430;
+  --ink-2: #445063;
+  --ink-muted: #5b6678;
 
-  --rule: #d1d9e0;
-  --rule-strong: #c4cbd3;
+  --rule: #e6eaf0;
+  --rule-strong: #d6dce4;
 
-  /* Blue: selection, active filter, focus. */
-  --accent: #0969da;
-  --accent-text: #0969da;
+  /* Teal: selection, active filter, focus. */
+  --accent: #2c6e74;
+  --accent-text: #1f6268;
   --accent-ink: #ffffff;
-  --accent-wash: rgba(9, 105, 218, 0.08);
-  --accent-glow: rgba(9, 105, 218, 0.3);
-  --accent-line: rgba(9, 105, 218, 0.4);
+  --accent-wash: rgba(44, 110, 116, 0.08);
+  --accent-glow: rgba(44, 110, 116, 0.22);
+  --accent-line: rgba(44, 110, 116, 0.35);
 
-  /* Green: the primary action. */
-  --primary: #1f883d;
-  --primary-hover: #1c8139;
-  --primary-border: rgba(31, 35, 40, 0.15);
+  /* The primary action shares the teal, so the page has one brand colour. */
+  --primary: #2c6e74;
+  --primary-hover: #255f64;
+  --primary-border: transparent;
 
-  /* Amber: what the sync declined to act on. */
-  --anomaly: #875b00;
+  /* Periwinkle: what the sync changed in Snipe-IT. */
+  --change: #34508f;
+  --change-wash: rgba(52, 80, 143, 0.08);
+
+  /* Amber: what the sync declined to act on. A gap to look at, not a failure. */
+  --anomaly: #85600f;
   --anomaly-fill: #bf8700;
-  --anomaly-ink: #1f2328;
-  --anomaly-wash: rgba(212, 167, 44, 0.12);
-  --anomaly-line: rgba(212, 167, 44, 0.45);
+  --anomaly-ink: #1d2430;
+  --anomaly-wash: rgba(191, 135, 0, 0.08);
+  --anomaly-line: rgba(191, 135, 0, 0.28);
 
-  --select-bg: rgba(208, 215, 222, 0.32);
-  --counter-bg: rgba(175, 184, 193, 0.2);
+  --select-bg: rgba(44, 110, 116, 0.08);
+  --counter-bg: rgba(91, 102, 120, 0.1);
 
-  --line-offboard: #1f2328;
-  --line-reconcile: #424a53;
-  --line-onboard: #424a53;
-  --line-licenses: #59636e;
+  --line-offboard: #1d2430;
+  --line-reconcile: #445063;
+  --line-onboard: #445063;
+  --line-licenses: #5b6678;
 
-  --good: #1a7f37;
-  --bad: #d1242f;
+  --good: #2d6a47;
+  --bad: #b3261e;
 
   --shadow-1: none;
-  --shadow-pop: 0 1px 3px rgba(31, 35, 40, 0.12), 0 8px 24px rgba(66, 74, 83, 0.12);
+  --shadow-seg: 0 1px 2px rgba(20, 24, 30, 0.12);
+  --shadow-pop: 0 1px 3px rgba(20, 24, 30, 0.08), 0 12px 32px rgba(20, 24, 30, 0.14);
 
-  --radius: 6px;
-  --radius-sm: 6px;
+  --radius-lg: 14px;
+  --radius: 10px;
+  --radius-sm: 8px;
 
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
-  --font-sign: var(--font);
-  --font-data: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Noto Sans", Helvetica, Arial, sans-serif;
+  --font-sign: "Segoe UI Variable Display", var(--font);
+  --font-data: "Cascadia Mono", Consolas, ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -65,47 +72,51 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --page: #0d1117;
-  --surface: #0d1117;
-  --surface-2: #151b23;
-  --surface-3: #212830;
+  --page: #0f141c;
+  --surface: #151b25;
+  --surface-2: #1b2330;
+  --surface-3: #232c3a;
 
-  --ink: #f0f6fc;
-  --ink-2: #d1d7e0;
-  --ink-muted: #9198a1;
+  --ink: #dde3ec;
+  --ink-2: #aeb8c6;
+  --ink-muted: #8792a3;
 
-  --rule: #3d444d;
-  --rule-strong: #4f5761;
+  --rule: #1f2834;
+  --rule-strong: #2a3341;
 
-  --accent: #1f6feb;
-  --accent-text: #4493f8;
-  --accent-ink: #ffffff;
-  --accent-wash: rgba(56, 139, 253, 0.1);
-  --accent-glow: rgba(56, 139, 253, 0.3);
-  --accent-line: rgba(56, 139, 253, 0.45);
+  --accent: #2c6e74;
+  --accent-text: #7cc4c0;
+  --accent-ink: #eef8f7;
+  --accent-wash: rgba(124, 196, 192, 0.1);
+  --accent-glow: rgba(124, 196, 192, 0.25);
+  --accent-line: rgba(124, 196, 192, 0.35);
 
-  --primary: #238636;
-  --primary-hover: #29903b;
-  --primary-border: rgba(240, 246, 252, 0.1);
+  --primary: #2c6e74;
+  --primary-hover: #327b82;
+  --primary-border: transparent;
 
-  --anomaly: #d29922;
-  --anomaly-fill: #bb8009;
-  --anomaly-ink: #0d1117;
-  --anomaly-wash: rgba(187, 128, 9, 0.15);
-  --anomaly-line: rgba(187, 128, 9, 0.45);
+  --change: #a3b8e6;
+  --change-wash: rgba(163, 184, 230, 0.1);
 
-  --select-bg: rgba(177, 186, 196, 0.12);
-  --counter-bg: rgba(101, 108, 118, 0.2);
+  --anomaly: #d6b06a;
+  --anomaly-fill: #b8924a;
+  --anomaly-ink: #0f141c;
+  --anomaly-wash: rgba(214, 176, 106, 0.09);
+  --anomaly-line: rgba(214, 176, 106, 0.24);
 
-  --line-offboard: #f0f6fc;
-  --line-reconcile: #d1d7e0;
-  --line-onboard: #d1d7e0;
-  --line-licenses: #9198a1;
+  --select-bg: rgba(124, 196, 192, 0.1);
+  --counter-bg: rgba(135, 146, 163, 0.14);
 
-  --good: #3fb950;
-  --bad: #f85149;
+  --line-offboard: #dde3ec;
+  --line-reconcile: #aeb8c6;
+  --line-onboard: #aeb8c6;
+  --line-licenses: #8792a3;
 
-  --shadow-pop: 0 0 0 1px #3d444d, 0 16px 32px rgba(1, 4, 9, 0.85);
+  --good: #8fc7a5;
+  --bad: #e58a84;
+
+  --shadow-seg: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-pop: 0 0 0 1px #2a3341, 0 16px 40px rgba(0, 0, 0, 0.55);
 }
 
 * {
@@ -121,7 +132,7 @@ body,
 body {
   margin: 0;
   font-family: var(--font);
-  font-size: 14px;
+  font-size: 13.5px;
   line-height: 1.5;
   color: var(--ink);
   background: var(--page);
@@ -135,6 +146,7 @@ h3 {
   margin: 0;
   font-family: var(--font-sign);
   font-weight: 600;
+  letter-spacing: -0.005em;
   text-wrap: balance;
 }
 

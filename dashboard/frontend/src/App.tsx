@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ACTIONS } from "./actions";
-import { api, type AuditRecord, type AuditStats } from "./api";
+import { api, type Approval, type AuditRecord, type AuditStats, type RunEntry } from "./api";
 import { ActionHelp } from "./components/ActionHelp";
 import { AuditTable } from "./components/AuditTable";
+import { LastSyncCard } from "./components/LastSyncCard";
 import { RecordInspector } from "./components/RecordInspector";
+import { RunsView } from "./components/RunsView";
 import { SyncButton } from "./components/SyncButton";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { UnmatchedPanel } from "./components/UnmatchedPanel";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { formatUtc, relativeFromNow, toUtcDate } from "./format";
 import { actionTag, lineForFunction } from "./lines";
-import { applyTableView, DEFAULT_SORT, type Sort } from "./lib/tableView";
+import { approvalChecker } from "./lib/approvals";
+import { applyTableView, DEFAULT_SORT, matchesSearch, type Sort } from "./lib/tableView";
 import { currentTheme, type Theme } from "./lib/theme";
 import { downloadWorkbook, type CellValue } from "./lib/xlsx";
 
@@ -22,6 +25,11 @@ const FUNCTIONS = [
 ];
 
 const TABLE_LIMIT = 500;
+
+/** Runs loaded per page of the run history; "Show older runs" adds another page. */
+const RUN_PAGE = 30;
+
+type TrailView = "runs" | "rows";
 
 /** Syncs are occasional (button or nightly task), so a slow poll is plenty — this isn't a live feed. */
 const REFRESH_MS = 60_000;
@@ -101,6 +109,13 @@ export function App() {
 
   const [stats, setStats] = useState<AuditStats | null>(null);
   const [records, setRecords] = useState<AuditRecord[]>([]);
+  const [runs, setRuns] = useState<RunEntry[]>([]);
+  const [lastRun, setLastRun] = useState<RunEntry | null>(null);
+  const [runLimit, setRunLimit] = useState(RUN_PAGE);
+  const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [approveBusy, setApproveBusy] = useState<string | null>(null);
+  const [approveError, setApproveError] = useState<string | null>(null);
+  const [view, setView] = useState<TrailView>("runs");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -137,7 +152,7 @@ export function App() {
       };
 
       try {
-        const [s, r] = await Promise.all([
+        const [s, r, runPage, newest, appr] = await Promise.all([
           api.stats(common),
           api.records({
             from: common.from,
@@ -146,8 +161,15 @@ export function App() {
             function: common.function,
             limit: TABLE_LIMIT,
           }),
+          api.runs({ from: common.from, to: common.to, dryRun: common.dryRun, limit: runLimit }),
+          // The Last sync card shows the newest run whatever the filters say.
+          api.runs({ limit: 1 }),
+          api.approvals(),
         ]);
         setStats(s);
+        setRuns(runPage);
+        setLastRun(newest[0] ?? null);
+        setApprovals(appr);
         // /api/audit has no dryRun filter, so honor it client-side for the table.
         setRecords(
           filters.dryRun === "all"
@@ -159,17 +181,55 @@ export function App() {
         setError(e instanceof Error ? e.message : String(e));
         setStats(null);
         setRecords([]);
+        setRuns([]);
       } finally {
         inFlight.current = false;
         if (!silent) setLoading(false);
       }
     },
-    [filters],
+    [filters, runLimit],
   );
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // A different range or run type starts the run history from its first page again.
+  useEffect(() => {
+    setRunLimit(RUN_PAGE);
+  }, [filters]);
+
+  const isApproved = useMemo(() => approvalChecker(approvals), [approvals]);
+
+  const approve = useCallback(
+    async (user: string, email: string | null) => {
+      setApproveBusy(user);
+      setApproveError(null);
+      try {
+        const added = await api.approve(user, email);
+        setApprovals((list) => [...list.filter((a) => a.key !== added.key), added]
+          .sort((a, b) => a.user.localeCompare(b.user)));
+      } catch (e) {
+        setApproveError(`Couldn't approve ${user}: ${e instanceof Error ? e.message : String(e)}`);
+      } finally {
+        setApproveBusy(null);
+      }
+    },
+    [],
+  );
+
+  const unapprove = useCallback(async (key: string) => {
+    setApproveBusy(key);
+    setApproveError(null);
+    try {
+      await api.unapprove(key);
+      setApprovals((list) => list.filter((a) => a.key !== key));
+    } catch (e) {
+      setApproveError(`Couldn't undo that approval: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setApproveBusy(null);
+    }
+  }, []);
 
   // Background poll. Silent, so the Refresh button doesn't flicker every minute.
   useEffect(() => {
@@ -192,10 +252,20 @@ export function App() {
   const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }));
 
   // The selected row may drop out of view on a refetch; the inspector follows the data.
-  const selected = useMemo(
-    () => (selectedId ? (records.find((r) => r.id === selectedId) ?? null) : null),
-    [records, selectedId],
-  );
+  // The open row may come from the flat table or from a run (whose rows can be older than the
+  // table's newest 500), so look in both.
+  const selected = useMemo(() => {
+    if (!selectedId) return null;
+    const fromTable = records.find((r) => r.id === selectedId);
+    if (fromTable) return fromTable;
+    for (const run of runs) {
+      const hit =
+        run.changes.find((r) => r.id === selectedId) ??
+        run.declined.find((p) => p.record.id === selectedId)?.record;
+      if (hit) return hit;
+    }
+    return null;
+  }, [records, runs, selectedId]);
 
   // Hand focus back to the row that opened the inspector once it has unmounted; focusing
   // before React commits would land on the heading that is about to disappear.
@@ -207,7 +277,7 @@ export function App() {
 
   useEffect(() => {
     if (selected || !returnFocusTo.current) return;
-    document.querySelector<HTMLElement>(`tr[data-id="${returnFocusTo.current}"]`)?.focus();
+    document.querySelector<HTMLElement>(`[data-id="${returnFocusTo.current}"]`)?.focus();
     returnFocusTo.current = null;
   }, [selected]);
 
@@ -228,6 +298,28 @@ export function App() {
   };
 
   const rowCount = search ? visible.length : records.length;
+
+  // The run view filters on the client: action and function filters plus the search.
+  const runMatches = useCallback(
+    (r: AuditRecord) =>
+      (filters.action === "all" || r.action === filters.action) &&
+      (filters.func === "all" || r.function === filters.func) &&
+      matchesSearch(r, search),
+    [filters.action, filters.func, search],
+  );
+  const runsNarrowed = Boolean(search.trim()) || filters.action !== "all" || filters.func !== "all";
+
+  const renderDetail = (r: AuditRecord) => (
+    <RecordInspector
+      record={r}
+      records={records}
+      onSelect={setSelectedId}
+      onClose={closeInspector}
+      advanced={advanced}
+      onAdvancedChange={setAdvanced}
+      now={now}
+    />
+  );
 
   /** Export the rows currently on screen — search and sort included. */
   const exportExcel = useCallback(() => {
@@ -261,6 +353,11 @@ export function App() {
     );
   }, [visible, filters]);
 
+  const viewButtons: [TrailView, string][] = [
+    ["runs", "By run"],
+    ["rows", "Every row"],
+  ];
+
   return (
     <div className="app">
       <header className="top">
@@ -273,32 +370,51 @@ export function App() {
             </div>
           </div>
 
+          {/* The investigation starts here, so search lives in the top bar. */}
+          <label className="search search--top">
+            <svg viewBox="0 0 14 14" width="15" height="15" aria-hidden="true">
+              <circle cx="6" cy="6" r="4.2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+              <path d="m9.2 9.2 3.1 3.1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search a person, action, email, detail…"
+              aria-label="Search audit records"
+            />
+          </label>
+
           <div className="top__tools">
-            {/* The freshness label doubles as the manual refresh. */}
-            <button
-              className="top__status"
-              onClick={() => void load()}
-              disabled={loading}
-              title={
-                lastLoaded
-                  ? `Loaded ${formatUtc(lastLoaded.toISOString())} UTC. Click to refresh now.`
-                  : "Refresh now"
-              }
-            >
-              <span className={`pulse ${autoRefresh ? "pulse--on" : ""} ${loading ? "pulse--busy" : ""}`} aria-hidden="true" />
-              <span className="top__status-text">
-                {loading ? "loading…" : `updated ${relativeFromNow(lastLoaded, now)}`}
-              </span>
-            </button>
-            <label className="toggle" title={`Re-check every ${REFRESH_MS / 1000}s`}>
-              <input
-                type="checkbox"
-                checked={autoRefresh}
-                onChange={(e) => setAutoRefresh(e.target.checked)}
-              />
-              <span className="toggle__track" aria-hidden="true" />
-              Auto-refresh
-            </label>
+            <div className="status-pill">
+              {/* The freshness label doubles as the manual refresh. */}
+              <button
+                className="top__status"
+                onClick={() => void load()}
+                disabled={loading}
+                title={
+                  lastLoaded
+                    ? `Loaded ${formatUtc(lastLoaded.toISOString())} UTC. Click to refresh now.`
+                    : "Refresh now"
+                }
+              >
+                <span className={`pulse ${autoRefresh ? "pulse--on" : ""} ${loading ? "pulse--busy" : ""}`} aria-hidden="true" />
+                <span className="top__status-text">
+                  {loading ? "Loading…" : `Updated ${relativeFromNow(lastLoaded, now)}`}
+                </span>
+              </button>
+              <span className="status-pill__sep" aria-hidden="true" />
+              <label className="toggle" title={`Re-check every ${REFRESH_MS / 1000}s`}>
+                <input
+                  type="checkbox"
+                  checked={autoRefresh}
+                  onChange={(e) => setAutoRefresh(e.target.checked)}
+                />
+                <span className="toggle__track" aria-hidden="true" />
+                <span className="toggle__label">Auto</span>
+                <span className="sr-only">-refresh</span>
+              </label>
+            </div>
             <ActionHelp />
             <ThemeToggle theme={theme} onChange={setTheme} />
             <SyncButton onFinished={() => void load(true)} />
@@ -375,6 +491,7 @@ export function App() {
                     className={`facet__item ${filters.action === a ? "facet__item--on" : ""}`}
                     aria-pressed={filters.action === a}
                     onClick={() => set({ action: filters.action === a ? "all" : a })}
+                    title={a}
                   >
                     <span className={`facet__mark facet__mark--${actionTag(a)}`} aria-hidden="true" />
                     <span className="facet__name">{a}</span>
@@ -412,62 +529,77 @@ export function App() {
               ))}
             </ul>
           </section>
-
         </aside>
 
-      <main className="workspace">
-        <UpdateBanner />
+        <main className="workspace">
+          <UpdateBanner />
 
-        {error && (
-          <div className="alert" role="alert">
-            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-              <path
-                d="M8 1.8 15 14H1L8 1.8Z"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinejoin="round"
-              />
-              <path d="M8 6v3.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              <circle cx="8" cy="11.8" r=".9" fill="currentColor" />
-            </svg>
-            <p className="alert__text">
-              <strong>Couldn't load the audit trail.</strong> {error}
-            </p>
-            <button className="btn btn--ghost" onClick={() => void load()} disabled={loading}>
-              Try again
-            </button>
+          {error && (
+            <div className="alert" role="alert">
+              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                <path
+                  d="M8 1.8 15 14H1L8 1.8Z"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinejoin="round"
+                />
+                <path d="M8 6v3.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                <circle cx="8" cy="11.8" r=".9" fill="currentColor" />
+              </svg>
+              <p className="alert__text">
+                <strong>Couldn't load the audit trail.</strong> {error}
+              </p>
+              <button className="btn btn--ghost" onClick={() => void load()} disabled={loading}>
+                Try again
+              </button>
+            </div>
+          )}
+
+          <div className="overview">
+            <LastSyncCard run={lastRun} failed={Boolean(error) || (loading && !lastRun)} now={now} />
+            <UnmatchedPanel
+              records={records}
+              approvals={approvals}
+              isApproved={isApproved}
+              onPick={(user) => {
+                setSearch(user);
+              }}
+              onApprove={(user, email) => void approve(user, email)}
+              onUnapprove={(key) => void unapprove(key)}
+              busy={approveBusy}
+              error={approveError}
+              now={now}
+              failed={Boolean(error) || (loading && !stats)}
+            />
           </div>
-        )}
 
-        {/* The investigation starts here, so search sits right above the trail. */}
-        <label className="search search--main">
-          <svg viewBox="0 0 14 14" width="15" height="15" aria-hidden="true">
-            <circle cx="6" cy="6" r="4.2" fill="none" stroke="currentColor" strokeWidth="1.5" />
-            <path d="m9.2 9.2 3.1 3.1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search a person, action, email, detail…"
-            aria-label="Search audit records"
-          />
-        </label>
-
-        <div className="desk">
           <section className="panel ledger" aria-label="Audit records">
             <div className="ledger__head">
               <h2>Audit trail</h2>
               <span className="ledger__count" aria-live="polite">
-                {search ? `${visible.length} of ${records.length}` : `${records.length}`} row
-                {rowCount === 1 ? "" : "s"}
+                {view === "runs"
+                  ? `${runs.length} run${runs.length === 1 ? "" : "s"}`
+                  : `${search ? `${visible.length} of ${records.length}` : records.length} row${rowCount === 1 ? "" : "s"}`}
               </span>
+              <span className="ledger__spacer" />
+              <div className="seg" role="group" aria-label="Group the audit trail">
+                {viewButtons.map(([value, label]) => (
+                  <button
+                    key={value}
+                    className={`seg__btn ${view === value ? "seg__btn--on" : ""}`}
+                    aria-pressed={view === value}
+                    onClick={() => setView(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               <button
                 className="btn btn--ghost"
                 onClick={exportExcel}
                 disabled={visible.length === 0}
-                title="Download the rows shown below as an .xlsx workbook"
+                title="Download the matching rows as an .xlsx workbook"
               >
                 <svg viewBox="0 0 14 14" width="13" height="13" aria-hidden="true">
                   <path
@@ -483,42 +615,43 @@ export function App() {
               </button>
             </div>
 
-            {records.length >= TABLE_LIMIT && (
+            {view === "rows" && records.length >= TABLE_LIMIT && (
               <p className="ledger__cap">
                 Showing the newest {TABLE_LIMIT} rows. Older rows in this range aren't loaded;
                 narrow the dates to reach them.
               </p>
             )}
 
-            <AuditTable
-              records={visible}
-              sort={sort}
-              onSortChange={setSort}
-              loading={loading}
-              searching={search.trim().length > 0}
-              selectedId={selected?.id ?? null}
-              onSelect={setSelectedId}
-              onReset={resetView}
-              failed={Boolean(error)}
-              renderDetail={(r) => (
-                <RecordInspector
-                  record={r}
-                  records={records}
-                  onSelect={setSelectedId}
-                  onClose={closeInspector}
-                  advanced={advanced}
-                  onAdvancedChange={setAdvanced}
-                  now={now}
-                />
-              )}
-            />
+            {view === "runs" ? (
+              <RunsView
+                runs={runs}
+                loading={loading}
+                failed={Boolean(error)}
+                matches={runMatches}
+                narrowed={runsNarrowed}
+                isApproved={isApproved}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                renderDetail={renderDetail}
+                onShowMore={runs.length >= runLimit ? () => setRunLimit((n) => n + RUN_PAGE) : undefined}
+              />
+            ) : (
+              <AuditTable
+                records={visible}
+                sort={sort}
+                onSortChange={setSort}
+                loading={loading}
+                searching={search.trim().length > 0}
+                selectedId={selected?.id ?? null}
+                onSelect={setSelectedId}
+                onReset={resetView}
+                failed={Boolean(error)}
+                isApproved={isApproved}
+                renderDetail={renderDetail}
+              />
+            )}
           </section>
-
-          <aside className="side" aria-label="Overview">
-            <UnmatchedPanel records={records} onPick={setSearch} now={now} failed={Boolean(error) || (loading && !stats)} />
-          </aside>
-        </div>
-      </main>
+        </main>
       </div>
     </div>
   );
