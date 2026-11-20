@@ -8,25 +8,16 @@ const RESTART_POLL_MS = 2_000;
 /** Past this the relaunch has probably failed (or was blocked); say how to reopen by hand. */
 const RESTART_GIVE_UP_MS = 3 * 60_000;
 
-/** Remembers "Later" per version, so the next release still gets announced. */
-const DISMISS_KEY = "snipesync.update.dismissed";
-
-function dismissedVersion(): string | null {
-  try {
-    return localStorage.getItem(DISMISS_KEY);
-  } catch {
-    return null;
-  }
-}
-
 /**
- * "A new version is out" strip above the filters. Update downloads the release's installer and runs
- * it silently; the host exits, the installer replaces it and starts it again, and this page reloads
- * itself once the new version answers.
+ * "A new version is out" strip above the dashboard, shown on every launch while an update is
+ * waiting. Update downloads the release's installer and runs it silently; the host exits, the
+ * installer replaces it and starts it again, and this page reloads itself once the new version
+ * answers.
  */
 export function UpdateBanner() {
   const [status, setStatus] = useState<UpdateStatus | null>(null);
-  const [dismissed, setDismissed] = useState(dismissedVersion);
+  // "Later" lasts until the window closes: every launch asks again while an update is waiting.
+  const [dismissed, setDismissed] = useState<string | null>(null);
   const [phase, setPhase] = useState<"idle" | "starting" | "restarting" | "stuck">("idle");
   const [error, setError] = useState<string | null>(null);
   const fromVersion = useRef<string | null>(null);
@@ -82,11 +73,6 @@ export function UpdateBanner() {
 
   const later = () => {
     if (!status?.latest) return;
-    try {
-      localStorage.setItem(DISMISS_KEY, status.latest);
-    } catch {
-      // Storage off: hide it for this session only.
-    }
     setDismissed(status.latest);
   };
 
